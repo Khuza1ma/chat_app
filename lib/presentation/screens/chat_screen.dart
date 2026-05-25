@@ -8,7 +8,6 @@ import 'package:chat_app/data/models/message_model.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
-import 'package:chat_app/scripts/firebase_init_users.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -387,78 +386,89 @@ class _ChatScreenState extends State<ChatScreen> {
     final currentUser = auth.user;
     final other = widget.otherUser;
     return Scaffold(
-      appBar: AppBar(
-        leading: _isSelectionMode
-            ? IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: _clearSelection,
-              )
-            : null,
-        title: _isSelectionMode
-            ? Text('${_selectedMessageIds.length} messages selected...')
-            : Row(
-                children: [
-                  Hero(
-                    tag: 'chat_avatar_${other?.uid}',
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.05),
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: _isSelectionMode
+              ? AppBar(
+                  key: const ValueKey('selection_appbar'),
+                  leading: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: _clearSelection,
+                  ),
+                  title: Text(
+                    '${_selectedMessageIds.length} messages selected...',
+                  ),
+                  actions: [
+                    if (_canCopy())
+                      IconButton(
+                        icon: const Icon(Icons.copy),
+                        onPressed: _copyToClipboard,
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: _deleteSelectedMessages,
+                    ),
+                  ],
+                )
+              : AppBar(
+                  key: const ValueKey('normal_appbar'),
+                  title: Row(
+                    children: [
+                      Hero(
+                        tag: 'chat_avatar_${other?.uid}',
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.05),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: other != null
+                                ? AppColors.getColorFromString(other.uid)
+                                : AppColors.greyLight,
+                            backgroundImage: other?.profileUrl != null
+                                ? CachedNetworkImageProvider(other!.profileUrl!)
+                                : null,
+                            child: other?.profileUrl == null
+                                ? Text(
+                                    (other?.displayName ??
+                                            other?.username ??
+                                            'U')
+                                        .substring(0, 1)
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
                       ),
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: other != null
-                            ? AppColors.getColorFromString(other.uid)
-                            : AppColors.greyLight,
-                        backgroundImage: other?.profileUrl != null
-                            ? CachedNetworkImageProvider(other!.profileUrl!)
-                            : null,
-                        child: other?.profileUrl == null
-                            ? Text(
-                                (other?.displayName ?? other?.username ?? 'U')
-                                    .substring(0, 1)
-                                    .toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          other?.displayName ?? other?.username ?? 'Chat',
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      other?.displayName ?? other?.username ?? 'Chat',
-                    ),
-                  ),
-                ],
-              ),
-        actions: _isSelectionMode
-            ? [
-                if (_canCopy())
-                  IconButton(
-                    icon: const Icon(Icons.copy),
-                    onPressed: _copyToClipboard,
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: _deleteSelectedMessages,
+                  actions: const [],
                 ),
-              ]
-            : [],
+        ),
       ),
       body: Column(
         children: [
@@ -466,7 +476,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: _buildMessageList(_currentUserId ?? currentUser?.uid ?? ''),
           ),
           const Divider(height: 1),
-          if (!_isSelectionMode) _buildComposer(),
+          IgnorePointer(ignoring: _isSelectionMode, child: _buildComposer()),
         ],
       ),
     );
@@ -679,35 +689,44 @@ class _ChatScreenState extends State<ChatScreen> {
             icon: const Icon(Icons.attachment),
           ),
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _controller,
-                        minLines: 1,
-                        maxLines: 5,
-                        decoration: const InputDecoration(
-                          focusedBorder: InputBorder.none,
-                          border: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                          errorBorder: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          hintText: 'Type a message',
-                          hintStyle: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          fillColor: Colors.transparent,
-                        ),
+                Expanded(
+                  child: TextFormField(
+                    controller: _controller,
+                    minLines: 1,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                      focusedBorder: InputBorder.none,
+                      border: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      hintText: 'Type a message',
+                      hintStyle: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
+                      fillColor: Colors.transparent,
                     ),
-                    IconButton(onPressed: _send, icon: const Icon(Icons.send)),
-                  ],
+                  ),
+                ),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _controller,
+                  builder: (context, value, child) {
+                    final isNotEmpty = value.text.trim().isNotEmpty;
+                    return AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: isNotEmpty ? 1.0 : 0.5,
+                      child: IconButton(
+                        onPressed: isNotEmpty ? _send : null,
+                        icon: const Icon(Icons.send),
+                        color: AppColors.primary,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
