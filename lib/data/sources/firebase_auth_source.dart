@@ -1,29 +1,49 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
 class FirebaseAuthSource {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
-  Stream<User?> get onAuthStateChanged => _auth.authStateChanges();
+  Stream<User?> get onAuthStateChanged =>
+      _firebaseAuth.authStateChanges();
 
-  Future<void> verifyPhoneNumber({
+  Future<void> signOut() async {
+    await _firebaseAuth.signOut();
+  }
+
+  Future<void> sendOTP({
     required String phoneNumber,
-    required Function(PhoneAuthCredential) verificationCompleted,
-    required Function(FirebaseAuthException) verificationFailed,
-    required Function(String, int?) codeSent,
-    required Function(String) codeAutoRetrievalTimeout,
+    required Function(String verificationId) codeSent,
+    required Function(FirebaseAuthException e) verificationFailed,
   }) async {
-    await _auth.verifyPhoneNumber(
+    await _firebaseAuth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
-      verificationCompleted: verificationCompleted,
+
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await _firebaseAuth.signInWithCredential(credential);
+      },
+
       verificationFailed: verificationFailed,
-      codeSent: codeSent,
-      codeAutoRetrievalTimeout: codeAutoRetrievalTimeout,
+
+      codeSent: (String verificationId, int? resendToken) {
+        codeSent(verificationId);
+      },
+
+      codeAutoRetrievalTimeout: (String verificationId) {},
     );
   }
 
-  Future<UserCredential> signInWithCredential(PhoneAuthCredential credential) {
-    return _auth.signInWithCredential(credential);
-  }
+  Future<User> verifyOTP({
+    required String verificationId,
+    required String smsCode,
+  }) async {
+    final credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: smsCode,
+    );
 
-  Future<void> signOut() => _auth.signOut();
+    final userCredential =
+    await _firebaseAuth.signInWithCredential(credential);
+
+    return userCredential.user!;
+  }
 }

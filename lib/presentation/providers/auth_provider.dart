@@ -37,19 +37,24 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final result = await authRepository.sendOTP(phoneNumber);
+    final result = await authRepository.sendOTP(
+      phoneNumber: phoneNumber,
+
+      codeSent: (verificationId) {
+        _verificationId = verificationId;
+
+        _status = AuthStatus.codeSent;
+        notifyListeners();
+      },
+    );
 
     result.fold(
-      (failure) {
+          (failure) {
         _status = AuthStatus.error;
         _errorMessage = "Failed to send OTP. Please check the number.";
         notifyListeners();
       },
-      (_) {
-        _status = AuthStatus.codeSent;
-        _verificationId = "pending";
-        notifyListeners();
-      },
+          (_) {},
     );
   }
 
@@ -57,17 +62,21 @@ class AuthProvider extends ChangeNotifier {
     if (_verificationId == null) return;
 
     _status = AuthStatus.loading;
+    _errorMessage = null;
     notifyListeners();
 
-    final result = await authRepository.verifyOTP(_verificationId!, smsCode);
+    final result = await authRepository.verifyOTP(
+      verificationId: _verificationId!,
+      smsCode: smsCode,
+    );
 
     result.fold(
-      (failure) {
+          (failure) {
         _status = AuthStatus.error;
         _errorMessage = "Invalid OTP. Please try again.";
         notifyListeners();
       },
-      (user) {
+          (user) {
         _user = user;
         _status = AuthStatus.authenticated;
         notifyListeners();
