@@ -18,8 +18,29 @@ class FirebaseChatSource {
             snapshot.docs.map(MessageModel.fromFirestore).toList());
   }
 
+  // Chat-scoped APIs: messages are stored under `chats/{chatId}/messages`.
+  Stream<List<MessageModel>> getChatMessagesStream(String chatId, int limit) {
+    return _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map(MessageModel.fromFirestore).toList());
+  }
+
   Future<void> sendMessage(MessageModel message) async {
     await _firestore.collection('messages').add(message.toMap());
+  }
+
+  Future<void> sendChatMessage(String chatId, MessageModel message) async {
+    await _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .add(message.toMap());
   }
 
   Future<String> uploadImage(File image) async {
@@ -32,6 +53,19 @@ class FirebaseChatSource {
 
   Future<List<MessageModel>> getOlderMessages(DateTime before, int limit) async {
     final QuerySnapshot snapshot = await _firestore
+        .collection('messages')
+        .where('timestamp', isLessThan: Timestamp.fromDate(before))
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .get();
+
+    return snapshot.docs.map(MessageModel.fromFirestore).toList();
+  }
+
+  Future<List<MessageModel>> getOlderChatMessages(String chatId, DateTime before, int limit) async {
+    final QuerySnapshot snapshot = await _firestore
+        .collection('chats')
+        .doc(chatId)
         .collection('messages')
         .where('timestamp', isLessThan: Timestamp.fromDate(before))
         .orderBy('timestamp', descending: true)

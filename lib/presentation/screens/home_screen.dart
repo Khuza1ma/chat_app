@@ -1,14 +1,13 @@
-import 'package:chat_app/scripts/firebase_init_users.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:chat_app/presentation/providers/auth_provider.dart';
-import 'package:chat_app/presentation/screens/profile_screen.dart';
-import 'package:chat_app/presentation/screens/chat_screen.dart';
-import 'package:chat_app/core/theme/app_colors.dart';
-import 'package:chat_app/data/sources/firebase_chat_source.dart';
-import 'package:chat_app/data/models/user_model.dart';
-import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:chat_app/core/theme/app_colors.dart';
+import 'package:chat_app/data/models/user_model.dart';
+import 'package:chat_app/data/sources/firebase_chat_source.dart';
+import 'package:chat_app/presentation/providers/auth_provider.dart';
+import 'package:chat_app/presentation/screens/chat_screen.dart';
+import 'package:chat_app/presentation/screens/profile_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -18,7 +17,6 @@ class HomeScreen extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
     final chatSource = FirebaseChatSource();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Messages'),
@@ -134,12 +132,12 @@ class HomeScreen extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      child: InkWell(
+        child: InkWell(
         onTap: () {
           print('User tapped: ${user.profileUrl}');
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const ChatScreen()),
+            MaterialPageRoute(builder: (context) => ChatScreen(otherUser: user)),
           );
         },
         child: Padding(
