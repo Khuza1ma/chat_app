@@ -1,4 +1,5 @@
 import 'package:chat_app/domain/entities/user.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserModel extends UserEntity {
   UserModel({
@@ -6,6 +7,14 @@ class UserModel extends UserEntity {
     required super.phoneNumber,
     super.displayName,
     super.photoUrl,
+    super.username,
+    super.lastMessage,
+    super.lastMessageTime,
+    super.createdAt,
+    super.updatedAt,
+    super.isActive,
+    super.isDeleted,
+    super.profileUrl,
   });
 
   factory UserModel.fromFirebase(Map<String, dynamic> data, String uid) {
@@ -14,6 +23,20 @@ class UserModel extends UserEntity {
       phoneNumber: data['phoneNumber'] ?? '',
       displayName: data['displayName'],
       photoUrl: data['photoUrl'],
+      username: data['username'],
+      lastMessage: data['lastMessage'],
+      lastMessageTime: data['lastMessageTime'] != null
+          ? (data['lastMessageTime'] as Timestamp).toDate()
+          : null,
+      createdAt: data['createdAt'] != null
+          ? (data['createdAt'] as Timestamp).toDate()
+          : null,
+      updatedAt: data['updatedAt'] != null
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : null,
+      isActive: data['isActive'] ?? true,
+      isDeleted: data['isDeleted'] ?? false,
+      profileUrl: data['profileUrl'],
     );
   }
 
@@ -22,6 +45,14 @@ class UserModel extends UserEntity {
       'phoneNumber': phoneNumber,
       'displayName': displayName,
       'photoUrl': photoUrl,
+      'username': username,
+      'lastMessage': lastMessage,
+      'lastMessageTime': lastMessageTime != null ? Timestamp.fromDate(lastMessageTime!) : null,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'isActive': isActive,
+      'isDeleted': isDeleted,
+      'profileUrl': profileUrl,
     };
   }
 }

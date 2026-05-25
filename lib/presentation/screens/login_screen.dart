@@ -16,7 +16,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
-  bool _rememberMe = false;
 
   @override
   void dispose() {
@@ -182,6 +181,9 @@ class _LoginScreenState extends State<LoginScreen> {
           controller: _phoneController,
           keyboardType: TextInputType.phone,
           maxLength: 10,
+          readOnly:
+          authProvider.status == AuthStatus.loading ||
+              authProvider.status == AuthStatus.codeSent,
           style: const TextStyle(fontSize: 16, letterSpacing: 1.2),
           decoration: InputDecoration(
             hintText: '9898121245',
@@ -190,18 +192,26 @@ class _LoginScreenState extends State<LoginScreen> {
               fontWeight: FontWeight.w600,
               color: Colors.grey,
             ),
-            prefixIconConstraints: const BoxConstraints(
-
-            ),
-            prefixIcon: const Padding(
-              padding: EdgeInsets.only(left: 16, right: 8),
-              child: Text(
-                '+91',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
+            prefixIcon:  Padding(
+              padding: const EdgeInsets.only(left: 16, right: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '+91',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 1.5,
+                    height: 24,
+                    color: Colors.black,
+                  ),
+                ],
               ),
             ),
 
@@ -231,29 +241,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              height: 24,
-              width: 24,
-              child: Checkbox(
-                value: _rememberMe,
-                activeColor: AppColors.primary,
-                onChanged: (val) => setState(() => _rememberMe = val ?? false),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                side: BorderSide(color: Colors.grey.shade300),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'Remember me',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-          ],
-        ),
         const SizedBox(height: 32),
         SizedBox(
           width: double.infinity,
@@ -308,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Pinput(
           length: 6,
           controller: _otpController,
-            onCompleted: (pin) => _submitOtp(authProvider, pin),
+          onCompleted: (pin) => _submitOtp(authProvider, pin),
           defaultPinTheme: PinTheme(
             width: 50,
             height: 56,

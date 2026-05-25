@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import 'package:chat_app/data/models/message_model.dart';
+import 'package:chat_app/data/models/user_model.dart';
 
 class FirebaseChatSource {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -38,5 +39,28 @@ class FirebaseChatSource {
         .get();
 
     return snapshot.docs.map(MessageModel.fromFirestore).toList();
+  }
+
+  Stream<List<UserModel>> getAllUsers() {
+    return _firestore
+        .collection('users')
+        .where('isDeleted', isEqualTo: false)
+        .orderBy('lastMessageTime', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => UserModel.fromFirebase(doc.data(), doc.id))
+            .toList());
+  }
+
+  Future<List<UserModel>> getUsersOnce() async {
+    final QuerySnapshot snapshot = await _firestore
+        .collection('users')
+        .where('isDeleted', isEqualTo: false)
+        .orderBy('lastMessageTime', descending: true)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => UserModel.fromFirebase(doc.data() as Map<String, dynamic>, doc.id))
+        .toList();
   }
 }
