@@ -2,14 +2,19 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:chat_app/core/extension/toast_extension.dart';
+import 'package:chat_app/core/theme/app_colors.dart';
 import 'package:chat_app/data/models/message_model.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
+import 'package:chat_app/scripts/firebase_init_users.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:toastification/toastification.dart';
 
 class ChatScreen extends StatefulWidget {
   final UserModel? otherUser;
@@ -35,6 +40,10 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _activeChatId;
   String? _currentUserId;
 
+  final Set<String> _selectedMessageIds = {};
+
+  bool get _isSelectionMode => _selectedMessageIds.isNotEmpty;
+
   String _buildChatId(String uidA, String uidB) {
     final ids = [uidA, uidB]..sort();
     return ids.join('_');
@@ -44,7 +53,6 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    // Resolve current user once context is available, then start stream.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeChatContext();
     });
@@ -68,9 +76,7 @@ class _ChatScreenState extends State<ChatScreen> {
       event,
     ) {
       if (!mounted) return;
-      // incoming stream is ordered descending (newest first)
       setState(() {
-        // keep newest-first order
         _messages = event;
       });
     });
@@ -78,7 +84,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _onScroll() {
     if (!_hasMore || _isLoadingMore) return;
-    // With reverse: true, when user scrolls to the bottom (older messages), position.pixels >= maxScrollExtent
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 100) {
       _loadOlderMessages();
@@ -98,7 +103,6 @@ class _ChatScreenState extends State<ChatScreen> {
       if (older.isEmpty) {
         _hasMore = false;
       } else {
-        // Merge while avoiding duplicates (by id)
         final existingIds = _messages.map((m) => m.id).toSet();
         final toAdd = older.where((m) => !existingIds.contains(m.id)).toList();
         if (!mounted) return;
@@ -149,14 +153,21 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source, maxWidth: 1600);
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      imageQuality: 40,
+      requestFullMetadata: false,
+    );
     if (picked != null) {
       if (!mounted) return;
       final file = File(picked.path);
-      final String? caption = await showDialog<String?>(
-        context: context,
-        builder: (_) =>
-            _ImagePreviewDialog(file: file, initialCaption: _controller.text),
+      final String? caption = await Navigator.of(context).push<String?>(
+        MaterialPageRoute(
+          builder: (_) =>
+              _ImagePreviewScreen(file: file, initialCaption: _controller.text),
+        ),
       );
 
       if (caption != null) {
@@ -223,6 +234,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final message = MessageModel(
+      isDeleted: false,
       id: '',
       senderId: currentUser.uid,
       senderName:
@@ -243,24 +255,21 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
 
-    // update users lastMessage metadata for both participants (safe best-effort)
+    final lastMessagePreview = uploadedUrl != null ? 'Image' : text;
+
     try {
       final now = DateTime.now();
       final firestore = FirebaseFirestore.instance;
-      await firestore.collection('users').doc(currentUser.uid).update({
-        'lastMessage': text.isNotEmpty
-            ? text
-            : (uploadedUrl != null ? 'Image' : ''),
+      await firestore.collection('users').doc(currentUser.uid).set({
+        'lastMessage': lastMessagePreview,
         'lastMessageTime': Timestamp.fromDate(now),
         'updatedAt': Timestamp.now(),
-      });
-      await firestore.collection('users').doc(other.uid).update({
-        'lastMessage': text.isNotEmpty
-            ? text
-            : (uploadedUrl != null ? 'Image' : ''),
+      }, SetOptions(merge: true));
+      await firestore.collection('users').doc(other.uid).set({
+        'lastMessage': lastMessagePreview,
         'lastMessageTime': Timestamp.fromDate(now),
         'updatedAt': Timestamp.now(),
-      });
+      }, SetOptions(merge: true));
     } catch (e) {
       // ignore update errors
     }
@@ -268,7 +277,6 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.clear();
     if (!mounted) return;
     setState(() => _pickedImage = null);
-    // Scroll to top (newest) after send
     await Future.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
     if (_scrollController.hasClients) {
@@ -280,35 +288,177 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _toggleSelection(String messageId) {
+    setState(() {
+      if (_selectedMessageIds.contains(messageId)) {
+        _selectedMessageIds.remove(messageId);
+      } else {
+        _selectedMessageIds.add(messageId);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedMessageIds.clear();
+    });
+  }
+
+  Future<void> _deleteSelectedMessages() async {
+    if (_activeChatId == null || _selectedMessageIds.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete ${_selectedMessageIds.length} messages?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final idsToDelete = List<String>.from(_selectedMessageIds);
+      _clearSelection();
+      try {
+        for (final id in idsToDelete) {
+          final isRemote = _messages.any((m) => m.id == id);
+          if (isRemote) {
+            await _chatSource.deleteChatMessage(_activeChatId!, id);
+          } else {
+            setState(() {
+              _pendingMessages.removeWhere((p) => p.id == id);
+            });
+          }
+        }
+        if (mounted) {
+          context.showToast(message: 'Messages deleted');
+        }
+      } catch (e) {
+        if (mounted) {
+          context.showToast(
+            message: 'Failed to delete messages',
+            type: ToastificationType.error,
+          );
+        }
+      }
+    }
+  }
+
+  void _copyToClipboard() {
+    if (_selectedMessageIds.length != 1) return;
+    final selectedId = _selectedMessageIds.first;
+    final displayMessages = _buildDisplayMessages();
+    final msg = displayMessages.firstWhere((m) => m.id == selectedId);
+
+    if (msg.text.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: msg.text));
+      _clearSelection();
+      // context.showToast(message: 'Copied to clipboard');
+    }
+  }
+
+  bool _canCopy() {
+    if (_selectedMessageIds.length != 1) return false;
+    final selectedId = _selectedMessageIds.first;
+    final displayMessages = _buildDisplayMessages();
+    try {
+      final msg = displayMessages.firstWhere((m) => m.id == selectedId);
+      // Disable if image is selected or if it's not a text message
+      return msg.text.isNotEmpty &&
+          msg.imageUrl == null &&
+          msg.localImage == null;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final currentUser = auth.user;
     final other = widget.otherUser;
-
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundImage: other?.profileUrl != null
-                  ? NetworkImage(other!.profileUrl!)
-                  : null,
-              child: other?.profileUrl == null
-                  ? Text(
-                      (other?.displayName ?? other?.username ?? 'U')
-                          .substring(0, 1)
-                          .toUpperCase(),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(other?.displayName ?? other?.username ?? 'Chat'),
-            ),
-          ],
-        ),
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _clearSelection,
+              )
+            : null,
+        title: _isSelectionMode
+            ? Text('${_selectedMessageIds.length} messages selected...')
+            : Row(
+                children: [
+                  Hero(
+                    tag: 'chat_avatar_${other?.uid}',
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.05),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: other != null
+                            ? AppColors.getColorFromString(other.uid)
+                            : AppColors.greyLight,
+                        backgroundImage: other?.profileUrl != null
+                            ? CachedNetworkImageProvider(other!.profileUrl!)
+                            : null,
+                        child: other?.profileUrl == null
+                            ? Text(
+                                (other?.displayName ?? other?.username ?? 'U')
+                                    .substring(0, 1)
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      other?.displayName ?? other?.username ?? 'Chat',
+                    ),
+                  ),
+                ],
+              ),
+        actions: _isSelectionMode
+            ? [
+                if (_canCopy())
+                  IconButton(
+                    icon: const Icon(Icons.copy),
+                    onPressed: _copyToClipboard,
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: _deleteSelectedMessages,
+                ),
+              ]
+            : [],
       ),
       body: Column(
         children: [
@@ -316,7 +466,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: _buildMessageList(_currentUserId ?? currentUser?.uid ?? ''),
           ),
           const Divider(height: 1),
-          _buildComposer(),
+          if (!_isSelectionMode) _buildComposer(),
         ],
       ),
     );
@@ -332,7 +482,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return ListView.builder(
       controller: _scrollController,
       reverse: true,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: displayMessages.length + (_isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (_isLoadingMore && index == displayMessages.length) {
@@ -344,111 +494,114 @@ class _ChatScreenState extends State<ChatScreen> {
 
         final msg = displayMessages[index];
         final isMe = msg.senderId == currentUid;
-        final isImageOnly =
-            (msg.localImage != null || msg.imageUrl != null) &&
-            msg.text.isEmpty;
+        final isSelected = _selectedMessageIds.contains(msg.id);
 
-        if (isImageOnly) {
-          return Align(
-            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Stack(
-                children: [
-                  _buildMessageImage(msg, width: 240),
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        msg.isPending
-                            ? 'Sending...'
-                            : _formatTimestamp(msg.timestamp),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return Align(
-          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320),
-            child: Card(
-              color: isMe ? Colors.blueAccent : Colors.grey[200],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: msg.localImage != null || msg.imageUrl != null
-                    ? const EdgeInsets.only(bottom: 8)
-                    : const EdgeInsets.all(8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!isMe)
-                      Text(
-                        msg.senderName,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    if (msg.localImage != null || msg.imageUrl != null) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _buildMessageImage(msg, width: 240),
-                      ),
-                    ],
-                    if (msg.text.isNotEmpty) ...[
-                      if (msg.localImage != null || msg.imageUrl != null)
-                        const SizedBox(height: 6),
-                      Padding(
-                        padding: msg.localImage != null || msg.imageUrl != null
-                            ? const EdgeInsets.symmetric(horizontal: 8)
-                            : EdgeInsets.zero,
-                        child: Text(
-                          msg.text,
-                          style: TextStyle(
-                            color: isMe ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding: msg.localImage != null || msg.imageUrl != null
-                          ? const EdgeInsets.symmetric(horizontal: 8)
-                          : EdgeInsets.zero,
-                      child: Text(
-                        msg.isPending
-                            ? 'Sending...'
-                            : _formatTimestamp(msg.timestamp),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isMe ? Colors.white70 : Colors.black54,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+        return GestureDetector(
+          onTap: _isSelectionMode ? () => _toggleSelection(msg.id) : null,
+          onLongPress: msg.isPending ? null : () => _toggleSelection(msg.id),
+          child: Container(
+            color: isSelected
+                ? Colors.blue.withValues(alpha: 0.1)
+                : Colors.transparent,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Align(
+              alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+              child: _buildMessageBubble(msg, isMe),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMessageBubble(_DisplayMessage msg, bool isMe) {
+    final isImageOnly =
+        (msg.localImage != null || msg.imageUrl != null) && msg.text.isEmpty;
+
+    if (isImageOnly) {
+      return Stack(
+        children: [
+          _buildMessageImage(msg, width: 240),
+          Positioned(
+            right: 8,
+            bottom: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                msg.isPending ? 'Sending...' : _formatTimestamp(msg.timestamp),
+                style: const TextStyle(color: Colors.white, fontSize: 10),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 320),
+      child: Card(
+        color: isMe ? Colors.blueAccent : Colors.grey[200],
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: msg.localImage != null || msg.imageUrl != null
+              ? const EdgeInsets.only(bottom: 8)
+              : const EdgeInsets.all(8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isMe)
+                Text(
+                  msg.senderName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              if (msg.localImage != null || msg.imageUrl != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _buildMessageImage(msg, width: 240),
+                ),
+              ],
+              if (msg.text.isNotEmpty) ...[
+                if (msg.localImage != null || msg.imageUrl != null)
+                  const SizedBox(height: 6),
+                Padding(
+                  padding: msg.localImage != null || msg.imageUrl != null
+                      ? const EdgeInsets.symmetric(horizontal: 8)
+                      : EdgeInsets.zero,
+                  child: Text(
+                    msg.text,
+                    style: TextStyle(
+                      color: isMe ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 6),
+              Padding(
+                padding: msg.localImage != null || msg.imageUrl != null
+                    ? const EdgeInsets.symmetric(horizontal: 8)
+                    : EdgeInsets.zero,
+                child: Text(
+                  msg.isPending
+                      ? 'Sending...'
+                      : _formatTimestamp(msg.timestamp),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isMe ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -459,7 +612,10 @@ class _ChatScreenState extends State<ChatScreen> {
           border: Border.all(color: Colors.grey, width: 0.5),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Image.file(msg.localImage!, width: width, fit: BoxFit.cover),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.file(msg.localImage!, width: width, fit: BoxFit.cover),
+        ),
       );
     }
 
@@ -514,54 +670,49 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildComposer() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            IconButton(
-              onPressed: _showAttachmentOptions,
-              icon: const Icon(Icons.attachment),
-            ),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _controller,
-                          minLines: 1,
-                          maxLines: 5,
-                          decoration: const InputDecoration(
-                            focusedBorder: InputBorder.none,
-                            border: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                            focusedErrorBorder: InputBorder.none,
-                            errorBorder: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            hint: Text('Type a message'),
-                            hintStyle: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            fillColor: Colors.transparent,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: _showAttachmentOptions,
+            icon: const Icon(Icons.attachment),
+          ),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _controller,
+                        minLines: 1,
+                        maxLines: 5,
+                        decoration: const InputDecoration(
+                          focusedBorder: InputBorder.none,
+                          border: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          hintText: 'Type a message',
+                          hintStyle: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                           ),
+                          fillColor: Colors.transparent,
                         ),
                       ),
-                      IconButton(
-                        onPressed: _send,
-                        icon: const Icon(Icons.send),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                    IconButton(onPressed: _send, icon: const Icon(Icons.send)),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -647,17 +798,17 @@ class _DisplayMessage {
   }
 }
 
-class _ImagePreviewDialog extends StatefulWidget {
+class _ImagePreviewScreen extends StatefulWidget {
   final File file;
   final String initialCaption;
 
-  const _ImagePreviewDialog({required this.file, required this.initialCaption});
+  const _ImagePreviewScreen({required this.file, required this.initialCaption});
 
   @override
-  State<_ImagePreviewDialog> createState() => _ImagePreviewDialogState();
+  State<_ImagePreviewScreen> createState() => _ImagePreviewScreenState();
 }
 
-class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
+class _ImagePreviewScreenState extends State<_ImagePreviewScreen> {
   late final TextEditingController _captionController;
 
   @override
@@ -674,56 +825,59 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
-    return Dialog(
-      insetPadding: const EdgeInsets.all(12),
-      child: SizedBox(
-        width: size.width * 0.95,
-        height: size.height * 0.75,
-        child: Column(
-          children: [
-            Expanded(
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Preview'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'Discard',
+              style: TextStyle(color: Colors.redAccent),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_captionController.text.trim()),
+            child: const Text('Send', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
               child: InteractiveViewer(
+                maxScale: 4.0,
                 child: Image.file(widget.file, fit: BoxFit.contain),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: TextField(
-                controller: _captionController,
-                maxLines: 3,
-                decoration: const InputDecoration(hintText: 'Add a caption...'),
+          ),
+          Container(
+            color: Colors.black,
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+            child: TextField(
+              controller: _captionController,
+              maxLines: 3,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Add a caption...',
+                hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                ),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.08),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text(
-                        'Discard',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pop(_captionController.text.trim()),
-                      child: const Text('Send'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -15,7 +15,7 @@ class FirebaseChatSource {
         .limit(limit)
         .snapshots()
         .map((snapshot) =>
-            snapshot.docs.map(MessageModel.fromFirestore).toList());
+            snapshot.docs.map(MessageModel.fromFirestore).where((m) => !m.isDeleted).toList());
   }
 
   // Chat-scoped APIs: messages are stored under `chats/{chatId}/messages`.
@@ -28,7 +28,7 @@ class FirebaseChatSource {
         .limit(limit)
         .snapshots()
         .map((snapshot) =>
-            snapshot.docs.map(MessageModel.fromFirestore).toList());
+            snapshot.docs.map(MessageModel.fromFirestore).where((m) => !m.isDeleted).toList());
   }
 
   Future<void> sendMessage(MessageModel message) async {
@@ -41,6 +41,15 @@ class FirebaseChatSource {
         .doc(chatId)
         .collection('messages')
         .add(message.toMap());
+  }
+
+  Future<void> deleteChatMessage(String chatId, String messageId) async {
+    await _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .doc(messageId)
+        .update({'isDeleted': true, 'deletedAt': FieldValue.serverTimestamp()});
   }
 
   Future<String> uploadImage(File image) async {
@@ -59,7 +68,7 @@ class FirebaseChatSource {
         .limit(limit)
         .get();
 
-    return snapshot.docs.map(MessageModel.fromFirestore).toList();
+    return snapshot.docs.map(MessageModel.fromFirestore).where((m) => !m.isDeleted).toList();
   }
 
   Future<List<MessageModel>> getOlderChatMessages(String chatId, DateTime before, int limit) async {
@@ -72,7 +81,7 @@ class FirebaseChatSource {
         .limit(limit)
         .get();
 
-    return snapshot.docs.map(MessageModel.fromFirestore).toList();
+    return snapshot.docs.map(MessageModel.fromFirestore).where((m) => !m.isDeleted).toList();
   }
 
   Stream<List<UserModel>> getAllUsers() {
@@ -96,5 +105,15 @@ class FirebaseChatSource {
     return snapshot.docs
         .map((doc) => UserModel.fromFirebase(doc.data() as Map<String, dynamic>, doc.id))
         .toList();
+  }
+
+  Stream<UserModel?> getUserStream(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((doc) => doc.exists && doc.data() != null
+            ? UserModel.fromFirebase(doc.data()!, doc.id)
+            : null);
   }
 }

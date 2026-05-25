@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:chat_app/domain/entities/message.dart';
 
 class MessageModel extends MessageEntity {
+  final bool isDeleted;
+
   MessageModel({
+    required this.isDeleted,
     required super.id,
     required super.senderId,
     required super.senderName,
@@ -15,13 +18,14 @@ class MessageModel extends MessageEntity {
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
     final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return MessageModel(
+      isDeleted: data['isDeleted'] ?? false,
       id: doc.id,
       senderId: data['senderId'] ?? '',
       senderName: data['senderName'] ?? '',
       senderPhotoUrl: data['senderPhotoUrl'],
       text: data['text'] ?? '',
       imageUrl: data['imageUrl'],
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
+      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
@@ -32,6 +36,7 @@ class MessageModel extends MessageEntity {
       'senderPhotoUrl': senderPhotoUrl,
       'text': text,
       'imageUrl': imageUrl,
+      'isDeleted': isDeleted,
       'timestamp': FieldValue.serverTimestamp(),
     };
   }

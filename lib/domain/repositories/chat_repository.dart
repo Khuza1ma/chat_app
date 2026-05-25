@@ -7,4 +7,5 @@ abstract class ChatRepository {
   Stream<List<MessageEntity>> getMessages({int limit = 20});
   Future<Either<Failure, void>> sendMessage(MessageEntity message, File? image);
   Future<List<MessageEntity>> getOlderMessages(DateTime before, {int limit = 20});
+  Future<Either<Failure, void>> deleteMessages(String chatId, List<String> messageIds);
 }

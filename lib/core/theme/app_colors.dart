@@ -16,4 +16,18 @@ class AppColors {
   static const Color greyLight = Color(0xFFF5F5F5);
   static const Color greyMedium = Color(0xFFE0E0E0);
   static const Color greyDark = Color(0xFF757575);
+
+  static Color getColorFromString(String str) {
+    final colors = [
+      const Color(0xFF377DFE),
+      const Color(0xFF03DAC6),
+      const Color(0xFFFF6B6B),
+      const Color(0xFFFFA500),
+      const Color(0xFF9C27B0),
+      const Color(0xFF2196F3),
+      const Color(0xFF4CAF50),
+      const Color(0xFFFF9800),
+    ];
+    return colors[str.hashCode.abs() % colors.length];
+  }
 }

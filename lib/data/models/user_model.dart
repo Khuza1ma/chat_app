@@ -25,15 +25,9 @@ class UserModel extends UserEntity {
       photoUrl: data['photoUrl'],
       username: data['username'],
       lastMessage: data['lastMessage'],
-      lastMessageTime: data['lastMessageTime'] != null
-          ? (data['lastMessageTime'] as Timestamp).toDate()
-          : null,
-      createdAt: data['createdAt'] != null
-          ? (data['createdAt'] as Timestamp).toDate()
-          : null,
-      updatedAt: data['updatedAt'] != null
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : null,
+      lastMessageTime: (data['lastMessageTime'] as Timestamp?)?.toDate(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       isActive: data['isActive'] ?? true,
       isDeleted: data['isDeleted'] ?? false,
       profileUrl: data['profileUrl'],

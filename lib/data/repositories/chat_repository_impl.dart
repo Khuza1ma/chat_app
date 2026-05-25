@@ -25,6 +25,7 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       final messageModel = MessageModel(
+        isDeleted: false,
         id: message.id,
         senderId: message.senderId,
         senderName: message.senderName,
@@ -43,5 +44,17 @@ class ChatRepositoryImpl implements ChatRepository {
   @override
   Future<List<MessageEntity>> getOlderMessages(DateTime before, {int limit = 20}) {
     return dataSource.getOlderMessages(before, limit);
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteMessages(String chatId, List<String> messageIds) async {
+    try {
+      for (final id in messageIds) {
+        await dataSource.deleteChatMessage(chatId, id);
+      }
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
   }
 }
