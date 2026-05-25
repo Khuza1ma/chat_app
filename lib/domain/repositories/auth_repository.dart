@@ -4,7 +4,7 @@ import '../../core/error/failures.dart';
 import '../entities/user.dart';
 
 abstract class AuthRepository {
-  Future<Either<Failure, void>> sendOTP({
+  Future<Either<Failure, String?>> sendOTP({
     required String phoneNumber,
     required Function(String verificationId) codeSent,
   });

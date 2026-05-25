@@ -1,30 +1,49 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dartz/dartz.dart';
+import 'package:provider/provider.dart';
 
+import 'package:chat_app/core/error/failures.dart';
+import 'package:chat_app/domain/entities/user.dart';
+import 'package:chat_app/domain/repositories/auth_repository.dart';
 import 'package:chat_app/main.dart';
+import 'package:chat_app/presentation/providers/auth_provider.dart';
+
+class _FakeAuthRepository implements AuthRepository {
+  @override
+  Future<Either<Failure, String?>> sendOTP({
+    required String phoneNumber,
+    required Function(String verificationId) codeSent,
+  }) async {
+    return const Right(null);
+  }
+
+  @override
+  Future<Either<Failure, UserEntity>> verifyOTP({
+    required String verificationId,
+    required String smsCode,
+  }) async {
+    return Left(ServerFailure('Not implemented in test'));
+  }
+
+  @override
+  Stream<UserEntity?> get onAuthStateChanged => Stream<UserEntity?>.value(null);
+
+  @override
+  Future<void> signOut() async {}
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App boots to login screen', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>(
+        create: (_) => AuthProvider(_FakeAuthRepository()),
+        child: const MyApp(),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Log in with Phone\nNumber'), findsOneWidget);
   });
 }

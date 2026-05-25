@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 
 class FirebaseAuthSource {
@@ -10,26 +12,51 @@ class FirebaseAuthSource {
     await _firebaseAuth.signOut();
   }
 
-  Future<void> sendOTP({
+  Future<String?> sendOTP({
     required String phoneNumber,
     required Function(String verificationId) codeSent,
-    required Function(FirebaseAuthException e) verificationFailed,
   }) async {
-    await _firebaseAuth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
+    final completer = Completer<String?>();
 
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await _firebaseAuth.signInWithCredential(credential);
-      },
+    try {
+      await _firebaseAuth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          try {
+            await _firebaseAuth.signInWithCredential(credential);
+            if (!completer.isCompleted) {
+              completer.complete(null);
+            }
+          } catch (e, st) {
+            if (!completer.isCompleted) {
+              completer.completeError(e, st);
+            }
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (!completer.isCompleted) {
+            completer.completeError(e);
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          codeSent(verificationId);
+          if (!completer.isCompleted) {
+            completer.complete(verificationId);
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          if (!completer.isCompleted) {
+            completer.complete(null);
+          }
+        },
+      );
+    } catch (e, st) {
+      if (!completer.isCompleted) {
+        completer.completeError(e, st);
+      }
+    }
 
-      verificationFailed: verificationFailed,
-
-      codeSent: (String verificationId, int? resendToken) {
-        codeSent(verificationId);
-      },
-
-      codeAutoRetrievalTimeout: (String verificationId) {},
-    );
+    return completer.future;
   }
 
   Future<User> verifyOTP({
