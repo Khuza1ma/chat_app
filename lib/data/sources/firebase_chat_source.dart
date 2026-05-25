@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
-import '../models/message_model.dart';
+import 'package:chat_app/data/models/message_model.dart';
 
 class FirebaseChatSource {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -14,7 +14,7 @@ class FirebaseChatSource {
         .limit(limit)
         .snapshots()
         .map((snapshot) =>
-            snapshot.docs.map((doc) => MessageModel.fromFirestore(doc)).toList());
+            snapshot.docs.map(MessageModel.fromFirestore).toList());
   }
 
   Future<void> sendMessage(MessageModel message) async {
@@ -22,21 +22,21 @@ class FirebaseChatSource {
   }
 
   Future<String> uploadImage(File image) async {
-    String fileName = DateTime.now().millisecondsSinceEpoch.toString();
-    Reference ref = _storage.ref().child('chat_images').child(fileName);
-    UploadTask uploadTask = ref.putFile(image);
-    TaskSnapshot snapshot = await uploadTask;
-    return await snapshot.ref.getDownloadURL();
+    final String fileName = DateTime.now().millisecondsSinceEpoch.toString();
+    final Reference ref = _storage.ref().child('chat_images').child(fileName);
+    final UploadTask uploadTask = ref.putFile(image);
+    final TaskSnapshot snapshot = await uploadTask;
+    return snapshot.ref.getDownloadURL();
   }
 
   Future<List<MessageModel>> getOlderMessages(DateTime before, int limit) async {
-    QuerySnapshot snapshot = await _firestore
+    final QuerySnapshot snapshot = await _firestore
         .collection('messages')
         .where('timestamp', isLessThan: Timestamp.fromDate(before))
         .orderBy('timestamp', descending: true)
         .limit(limit)
         .get();
 
-    return snapshot.docs.map((doc) => MessageModel.fromFirestore(doc)).toList();
+    return snapshot.docs.map(MessageModel.fromFirestore).toList();
   }
 }

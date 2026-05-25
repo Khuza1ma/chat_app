@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../domain/entities/message.dart';
+import 'package:chat_app/domain/entities/message.dart';
 
 class MessageModel extends MessageEntity {
   MessageModel({
@@ -13,7 +13,7 @@ class MessageModel extends MessageEntity {
   });
 
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return MessageModel(
       id: doc.id,
       senderId: data['senderId'] ?? '',

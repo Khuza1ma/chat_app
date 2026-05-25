@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
-import '../../core/error/failures.dart';
-import '../entities/message.dart';
+import 'package:chat_app/core/error/failures.dart';
+import 'package:chat_app/domain/entities/message.dart';
 import 'dart:io';
 
 abstract class ChatRepository {

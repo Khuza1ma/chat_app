@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../domain/entities/user.dart';
-import '../../domain/repositories/auth_repository.dart';
+import 'package:chat_app/domain/entities/user.dart';
+import 'package:chat_app/domain/repositories/auth_repository.dart';
 
 enum AuthStatus { initial, loading, codeSent, authenticated, error }
 

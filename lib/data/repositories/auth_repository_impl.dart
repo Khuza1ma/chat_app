@@ -1,10 +1,10 @@
 import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../core/error/failures.dart';
-import '../../domain/entities/user.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../sources/firebase_auth_source.dart';
+import 'package:chat_app/core/error/failures.dart';
+import 'package:chat_app/domain/entities/user.dart';
+import 'package:chat_app/domain/repositories/auth_repository.dart';
+import 'package:chat_app/data/sources/firebase_auth_source.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final FirebaseAuthSource dataSource;

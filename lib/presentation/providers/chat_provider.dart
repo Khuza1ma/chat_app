@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../domain/entities/message.dart';
-import '../../domain/usecases/get_messages_usecase.dart';
-import '../../domain/usecases/send_message_usecase.dart';
+import 'package:chat_app/domain/entities/message.dart';
+import 'package:chat_app/domain/usecases/get_messages_usecase.dart';
+import 'package:chat_app/domain/usecases/send_message_usecase.dart';
 import 'dart:io';
 
 class ChatProvider extends ChangeNotifier {
@@ -9,7 +9,7 @@ class ChatProvider extends ChangeNotifier {
   final SendMessageUseCase sendMessageUseCase;
 
   List<MessageEntity> _messages = [];
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   ChatProvider({
     required this.getMessagesUseCase,

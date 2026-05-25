@@ -1,9 +1,9 @@
 import 'package:dartz/dartz.dart';
 
-import '../../core/error/failures.dart';
-import '../../core/usecases/usecase.dart';
-import '../entities/user.dart';
-import '../repositories/auth_repository.dart';
+import 'package:chat_app/core/error/failures.dart';
+import 'package:chat_app/core/usecases/usecase.dart';
+import 'package:chat_app/domain/entities/user.dart';
+import 'package:chat_app/domain/repositories/auth_repository.dart';
 
 class VerifyOTPUseCase
     implements UseCase<UserEntity, VerifyOTPParams> {

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:pinput/pinput.dart';
 import 'package:toastification/toastification.dart';
-import '../providers/auth_provider.dart';
-import '../../core/extension/toast_extension.dart';
-import '../../core/theme/app_colors.dart';
+import 'package:chat_app/presentation/providers/auth_provider.dart';
+import 'package:chat_app/core/extension/toast_extension.dart';
+import 'package:chat_app/core/theme/app_colors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -168,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
       key: key,
       children: [
         const Text(
-          "Log in with Phone\nNumber",
+          'Log in with Phone\nNumber',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
@@ -191,8 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
               color: Colors.grey,
             ),
             prefixIconConstraints: const BoxConstraints(
-              minWidth: 0,
-              minHeight: 0,
+
             ),
             prefixIcon: const Padding(
               padding: EdgeInsets.only(left: 16, right: 8),
@@ -250,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(width: 12),
             const Text(
-              "Remember me",
+              'Remember me',
               style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
           ],
@@ -295,13 +294,13 @@ class _LoginScreenState extends State<LoginScreen> {
       key: key,
       children: [
         const Text(
-          "Verify Phone",
+          'Verify Phone',
           style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
-          "Code sent to +91 ${_phoneController.text}",
+          'Code sent to +91 ${_phoneController.text}',
           style: const TextStyle(color: AppColors.greyDark),
           textAlign: TextAlign.center,
         ),
@@ -369,7 +368,7 @@ class _LoginScreenState extends State<LoginScreen> {
               authProvider.reset();
             },
             child: const Text(
-              "Change phone number?",
+              'Change phone number?',
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w600,

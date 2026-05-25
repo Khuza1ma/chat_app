@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 
-import '../../core/error/failures.dart';
-import '../entities/user.dart';
+import 'package:chat_app/core/error/failures.dart';
+import 'package:chat_app/domain/entities/user.dart';
 
 abstract class AuthRepository {
   Future<Either<Failure, String?>> sendOTP({

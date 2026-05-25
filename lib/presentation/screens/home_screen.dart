@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import 'profile_screen.dart';
-import 'chat_screen.dart';
-import '../../core/theme/app_colors.dart';
+import 'package:chat_app/presentation/providers/auth_provider.dart';
+import 'package:chat_app/presentation/screens/profile_screen.dart';
+import 'package:chat_app/presentation/screens/chat_screen.dart';
+import 'package:chat_app/core/theme/app_colors.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});

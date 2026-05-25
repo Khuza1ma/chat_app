@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:dartz/dartz.dart';
-import '../../core/error/failures.dart';
-import '../../domain/entities/message.dart';
-import '../../domain/repositories/chat_repository.dart';
-import '../models/message_model.dart';
-import '../sources/firebase_chat_source.dart';
+import 'package:chat_app/core/error/failures.dart';
+import 'package:chat_app/domain/entities/message.dart';
+import 'package:chat_app/domain/repositories/chat_repository.dart';
+import 'package:chat_app/data/models/message_model.dart';
+import 'package:chat_app/data/sources/firebase_chat_source.dart';
 
 class ChatRepositoryImpl implements ChatRepository {
   final FirebaseChatSource dataSource;
