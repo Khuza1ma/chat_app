@@ -11,8 +11,8 @@ import 'package:chat_app/domain/usecases/get_messages_usecase.dart';
 import 'package:chat_app/domain/usecases/send_message_usecase.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
 import 'package:chat_app/presentation/providers/chat_provider.dart';
-import 'package:chat_app/presentation/screens/login_screen.dart';
-import 'package:chat_app/presentation/screens/home_screen.dart';
+import 'package:chat_app/presentation/screens/auth/login_screen.dart';
+import 'package:chat_app/presentation/screens/home/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

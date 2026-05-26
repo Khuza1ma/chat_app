@@ -7,6 +7,8 @@ import 'package:chat_app/core/theme/app_colors.dart';
 import 'package:chat_app/data/models/message_model.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
+import 'package:chat_app/presentation/screens/chat/models/chat_message_state.dart';
+import 'package:chat_app/presentation/screens/chat/widgets/image_preview_screen.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
 import 'package:chat_app/presentation/providers/chat_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -33,7 +35,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   StreamSubscription<List<MessageModel>>? _subscription;
   List<MessageModel> _messages = [];
-  final List<_PendingMessage> _pendingMessages = [];
+  final List<ChatPendingMessage> _pendingMessages = [];
   bool _isLoadingMore = false;
   bool _hasMore = true;
   File? _pickedImage;
@@ -166,7 +168,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final String? caption = await Navigator.of(context).push<String?>(
         MaterialPageRoute(
           builder: (_) =>
-              _ImagePreviewScreen(file: file, initialCaption: _controller.text),
+              ImagePreviewScreen(file: file, initialCaption: _controller.text),
         ),
       );
 
@@ -189,8 +191,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (currentUser == null || other == null) return;
 
     // Retrieve text: prefer provider caption (from image preview) or fall back to controller
-    final String text = chatProvider.caption.isNotEmpty 
-        ? chatProvider.caption.trim() 
+    final String text = chatProvider.caption.isNotEmpty
+        ? chatProvider.caption.trim()
         : _controller.text.trim();
 
     if (text.isEmpty && _pickedImage == null) return;
@@ -201,7 +203,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (localImage != null) {
       setState(() {
         _pendingMessages.add(
-          _PendingMessage(
+          ChatPendingMessage(
             id: pendingId,
             senderId: currentUser.uid,
             senderName:
@@ -534,7 +536,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(_DisplayMessage msg, bool isMe) {
+  Widget _buildMessageBubble(ChatDisplayMessage msg, bool isMe) {
     final isImageOnly =
         (msg.localImage != null || msg.imageUrl != null) && msg.text.isEmpty;
 
@@ -625,7 +627,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageImage(_DisplayMessage msg, {required double width}) {
+  Widget _buildMessageImage(ChatDisplayMessage msg, {required double width}) {
     if (msg.localImage != null) {
       return Container(
         decoration: BoxDecoration(
@@ -677,8 +679,8 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  List<_DisplayMessage> _buildDisplayMessages() {
-    final remote = _messages.map(_DisplayMessage.fromRemote).toList();
+  List<ChatDisplayMessage> _buildDisplayMessages() {
+    final remote = _messages.map(ChatDisplayMessage.fromRemote).toList();
     final pending = _pendingMessages
         .where((pendingMsg) {
           if (pendingMsg.uploadedImageUrl == null) {
@@ -691,7 +693,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 remoteMsg.imageUrl == pendingMsg.uploadedImageUrl;
           });
         })
-        .map(_DisplayMessage.fromPending)
+        .map(ChatDisplayMessage.fromPending)
         .toList();
 
     return [...remote, ...pending]
@@ -769,167 +771,4 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-class _PendingMessage {
-  final String id;
-  final String senderId;
-  final String senderName;
-  final String text;
-  final File localImage;
-  final DateTime timestamp;
-  final String? uploadedImageUrl;
 
-  const _PendingMessage({
-    required this.id,
-    required this.senderId,
-    required this.senderName,
-    required this.text,
-    required this.localImage,
-    required this.timestamp,
-    this.uploadedImageUrl,
-  });
-
-  _PendingMessage copyWith({String? uploadedImageUrl}) {
-    return _PendingMessage(
-      id: id,
-      senderId: senderId,
-      senderName: senderName,
-      text: text,
-      localImage: localImage,
-      timestamp: timestamp,
-      uploadedImageUrl: uploadedImageUrl ?? this.uploadedImageUrl,
-    );
-  }
-}
-
-class _DisplayMessage {
-  final String id;
-  final String senderId;
-  final String senderName;
-  final String text;
-  final String? imageUrl;
-  final File? localImage;
-  final DateTime timestamp;
-  final bool isPending;
-
-  const _DisplayMessage({
-    required this.id,
-    required this.senderId,
-    required this.senderName,
-    required this.text,
-    required this.imageUrl,
-    required this.localImage,
-    required this.timestamp,
-    required this.isPending,
-  });
-
-  factory _DisplayMessage.fromRemote(MessageModel message) {
-    return _DisplayMessage(
-      id: message.id,
-      senderId: message.senderId,
-      senderName: message.senderName,
-      text: message.text,
-      imageUrl: message.imageUrl,
-      localImage: null,
-      timestamp: message.timestamp,
-      isPending: false,
-    );
-  }
-
-  factory _DisplayMessage.fromPending(_PendingMessage message) {
-    return _DisplayMessage(
-      id: message.id,
-      senderId: message.senderId,
-      senderName: message.senderName,
-      text: message.text,
-      imageUrl: message.uploadedImageUrl,
-      localImage: message.localImage,
-      timestamp: message.timestamp,
-      isPending: true,
-    );
-  }
-}
-
-class _ImagePreviewScreen extends StatefulWidget {
-  final File file;
-  final String initialCaption;
-
-  const _ImagePreviewScreen({required this.file, required this.initialCaption});
-
-  @override
-  State<_ImagePreviewScreen> createState() => _ImagePreviewScreenState();
-}
-
-class _ImagePreviewScreenState extends State<_ImagePreviewScreen> {
-  late final TextEditingController _captionController;
-
-  @override
-  void initState() {
-    super.initState();
-    _captionController = TextEditingController(text: widget.initialCaption);
-  }
-
-  @override
-  void dispose() {
-    _captionController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('Preview'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
-              'Discard',
-              style: TextStyle(color: Colors.redAccent),
-            ),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.of(context).pop(_captionController.text.trim()),
-            child: const Text('Send', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: InteractiveViewer(
-                maxScale: 4.0,
-                child: Image.file(widget.file, fit: BoxFit.contain),
-              ),
-            ),
-          ),
-          Container(
-            color: Colors.black,
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-            child: TextField(
-              controller: _captionController,
-              maxLines: 3,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Add a caption...',
-                hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.08),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

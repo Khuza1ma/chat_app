@@ -3,8 +3,8 @@ import 'package:chat_app/core/theme/app_colors.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
-import 'package:chat_app/presentation/screens/chat_screen.dart';
-import 'package:chat_app/presentation/screens/profile_screen.dart';
+import 'package:chat_app/presentation/screens/chat/chat_screen.dart';
+import 'package:chat_app/presentation/screens/profile/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -442,3 +442,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+
