@@ -11,6 +11,7 @@ import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
 import 'package:chat_app/presentation/providers/chat_provider.dart';
+import 'package:chat_app/presentation/providers/chat_ui_provider.dart';
 import 'package:chat_app/presentation/screens/chat/models/chat_message_state.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -34,19 +35,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final int _pageSize = 20;
+  final ChatUiProvider _uiProvider = ChatUiProvider();
 
   StreamSubscription<List<MessageModel>>? _subscription;
-  List<MessageModel> _messages = [];
-  final List<ChatPendingMessage> _pendingMessages = [];
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-  File? _pickedImage;
-  String? _activeChatId;
-  String? _currentUserId;
-
-  final Set<String> _selectedMessageIds = {};
-
-  bool get _isSelectionMode => _selectedMessageIds.isNotEmpty;
 
   String _buildChatId(String uidA, String uidB) {
     final ids = [uidA, uidB]..sort();
@@ -68,26 +59,26 @@ class _ChatScreenState extends State<ChatScreen> {
     final other = widget.otherUser;
     if (currentUser == null || other == null) return;
 
-    _currentUserId = currentUser.uid;
-    _activeChatId = _buildChatId(currentUser.uid, other.uid);
+    _uiProvider.setChatContext(
+      currentUserId: currentUser.uid,
+      chatId: _buildChatId(currentUser.uid, other.uid),
+    );
     _startListening();
   }
 
   void _startListening() {
-    final id = _activeChatId;
+    final id = _uiProvider.activeChatId;
     if (id == null || id.isEmpty) return;
     _subscription = _chatSource.getChatMessagesStream(id, _pageSize).listen((
       event,
     ) {
       if (!mounted) return;
-      setState(() {
-        _messages = event;
-      });
+      _uiProvider.setMessages(event);
     });
   }
 
   void _onScroll() {
-    if (!_hasMore || _isLoadingMore) return;
+    if (!_uiProvider.hasMore || _uiProvider.isLoadingMore) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 100) {
       _loadOlderMessages();
@@ -95,30 +86,29 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadOlderMessages() async {
-    if (_messages.isEmpty || _activeChatId == null) return;
-    setState(() => _isLoadingMore = true);
+    if (_uiProvider.messages.isEmpty || _uiProvider.activeChatId == null)
+      return;
+    _uiProvider.setLoadingMore(true);
     try {
-      final last = _messages.last;
+      final last = _uiProvider.messages.last;
       final older = await _chatSource.getOlderChatMessages(
-        _activeChatId!,
+        _uiProvider.activeChatId!,
         last.timestamp,
         _pageSize,
       );
       if (older.isEmpty) {
-        _hasMore = false;
+        _uiProvider.setHasMore(false);
       } else {
-        final existingIds = _messages.map((m) => m.id).toSet();
+        final existingIds = _uiProvider.messages.map((m) => m.id).toSet();
         final toAdd = older.where((m) => !existingIds.contains(m.id)).toList();
         if (!mounted) return;
-        setState(() {
-          _messages.addAll(toAdd);
-        });
+        _uiProvider.addOlderMessages(toAdd);
       }
     } catch (e) {
       // ignore
     }
     if (!mounted) return;
-    setState(() => _isLoadingMore = false);
+    _uiProvider.setLoadingMore(false);
   }
 
   @override
@@ -126,6 +116,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _subscription?.cancel();
     _controller.dispose();
     _scrollController.dispose();
+    _uiProvider.dispose();
     super.dispose();
   }
 
@@ -179,7 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (!mounted) return;
         // Use ChatProvider to handle the caption instead of direct controller assignment
         Provider.of<ChatProvider>(context, listen: false).setCaption(caption);
-        setState(() => _pickedImage = file);
+        _uiProvider.setPickedImage(file);
         await _send();
       }
     }
@@ -198,27 +189,25 @@ class _ChatScreenState extends State<ChatScreen> {
         ? chatProvider.caption.trim()
         : _controller.text.trim();
 
-    if (text.isEmpty && _pickedImage == null) return;
+    if (text.isEmpty && _uiProvider.pickedImage == null) return;
     final chatId = _buildChatId(currentUser.uid, other.uid);
     final pendingId = DateTime.now().microsecondsSinceEpoch.toString();
-    final localImage = _pickedImage;
+    final localImage = _uiProvider.pickedImage;
 
     if (localImage != null) {
-      setState(() {
-        _pendingMessages.add(
-          ChatPendingMessage(
-            id: pendingId,
-            senderId: currentUser.uid,
-            senderName:
-                currentUser.displayName ??
-                currentUser.username ??
-                currentUser.phoneNumber,
-            text: text,
-            localImage: localImage,
-            timestamp: DateTime.now(),
-          ),
-        );
-      });
+      _uiProvider.addPendingMessage(
+        ChatPendingMessage(
+          id: pendingId,
+          senderId: currentUser.uid,
+          senderName:
+              currentUser.displayName ??
+              currentUser.username ??
+              currentUser.phoneNumber,
+          text: text,
+          localImage: localImage,
+          timestamp: DateTime.now(),
+        ),
+      );
     }
 
     String? uploadedUrl;
@@ -226,20 +215,14 @@ class _ChatScreenState extends State<ChatScreen> {
       try {
         uploadedUrl = await _chatSource.uploadImage(localImage);
         if (mounted) {
-          setState(() {
-            final idx = _pendingMessages.indexWhere((p) => p.id == pendingId);
-            if (idx != -1) {
-              _pendingMessages[idx] = _pendingMessages[idx].copyWith(
-                uploadedImageUrl: uploadedUrl,
-              );
-            }
-          });
+          _uiProvider.setPendingUploadedUrl(
+            pendingId: pendingId,
+            uploadedImageUrl: uploadedUrl,
+          );
         }
       } catch (e) {
         if (mounted) {
-          setState(() {
-            _pendingMessages.removeWhere((p) => p.id == pendingId);
-          });
+          _uiProvider.removePendingMessage(pendingId);
         }
         return;
       }
@@ -262,9 +245,7 @@ class _ChatScreenState extends State<ChatScreen> {
     await _chatSource.sendChatMessage(chatId, message);
 
     if (mounted && localImage != null) {
-      setState(() {
-        _pendingMessages.removeWhere((p) => p.id == pendingId);
-      });
+      _uiProvider.removePendingMessage(pendingId);
     }
 
     final lastMessagePreview = uploadedUrl != null ? 'Image' : text;
@@ -290,7 +271,7 @@ class _ChatScreenState extends State<ChatScreen> {
     chatProvider.clearCaption(); // Reset provider state after send
 
     if (!mounted) return;
-    setState(() => _pickedImage = null);
+    _uiProvider.resetAfterSend();
     await Future.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
     if (_scrollController.hasClients) {
@@ -303,28 +284,25 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _toggleSelection(String messageId) {
-    setState(() {
-      if (_selectedMessageIds.contains(messageId)) {
-        _selectedMessageIds.remove(messageId);
-      } else {
-        _selectedMessageIds.add(messageId);
-      }
-    });
+    _uiProvider.toggleSelection(messageId);
   }
 
   void _clearSelection() {
-    setState(() {
-      _selectedMessageIds.clear();
-    });
+    _uiProvider.clearSelection();
   }
 
   Future<void> _deleteSelectedMessages() async {
-    if (_activeChatId == null || _selectedMessageIds.isEmpty) return;
+    if (_uiProvider.activeChatId == null ||
+        _uiProvider.selectedMessageIds.isEmpty) {
+      return;
+    }
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Delete ${_selectedMessageIds.length} messages?'),
+        title: Text(
+          'Delete ${_uiProvider.selectedMessageIds.length} messages?',
+        ),
         content: const Text('This action cannot be undone.'),
         actions: [
           TextButton(
@@ -340,17 +318,15 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     if (confirmed == true) {
-      final idsToDelete = List<String>.from(_selectedMessageIds);
+      final idsToDelete = List<String>.from(_uiProvider.selectedMessageIds);
       _clearSelection();
       try {
         for (final id in idsToDelete) {
-          final isRemote = _messages.any((m) => m.id == id);
+          final isRemote = _uiProvider.messages.any((m) => m.id == id);
           if (isRemote) {
-            await _chatSource.deleteChatMessage(_activeChatId!, id);
+            await _chatSource.deleteChatMessage(_uiProvider.activeChatId!, id);
           } else {
-            setState(() {
-              _pendingMessages.removeWhere((p) => p.id == id);
-            });
+            _uiProvider.removePendingMessage(id);
           }
         }
         if (mounted) {
@@ -368,8 +344,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _copyToClipboard() {
-    if (_selectedMessageIds.length != 1) return;
-    final selectedId = _selectedMessageIds.first;
+    if (_uiProvider.selectedMessageIds.length != 1) return;
+    final selectedId = _uiProvider.selectedMessageIds.first;
     final displayMessages = _buildDisplayMessages();
     final msg = displayMessages.firstWhere((m) => m.id == selectedId);
 
@@ -381,8 +357,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   bool _canCopy() {
-    if (_selectedMessageIds.length != 1) return false;
-    final selectedId = _selectedMessageIds.first;
+    if (_uiProvider.selectedMessageIds.length != 1) return false;
+    final selectedId = _uiProvider.selectedMessageIds.first;
     final displayMessages = _buildDisplayMessages();
     try {
       final msg = displayMessages.firstWhere((m) => m.id == selectedId);
@@ -400,141 +376,189 @@ class _ChatScreenState extends State<ChatScreen> {
     final auth = Provider.of<AuthProvider>(context);
     final currentUser = auth.user;
     final other = widget.otherUser;
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: _isSelectionMode
-              ? AppBar(
-                  key: const ValueKey('selection_appbar'),
-                  leading: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: _clearSelection,
-                  ),
-                  title: Text(
-                    '${_selectedMessageIds.length} messages selected...',
-                  ),
-                  actions: [
-                    if (_canCopy())
-                      IconButton(
-                        icon: const Icon(Icons.copy),
-                        onPressed: _copyToClipboard,
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: _deleteSelectedMessages,
-                    ),
-                  ],
-                )
-              : AppBar(
-                  key: const ValueKey('normal_appbar'),
-                  title: Row(
-                    children: [
-                      Hero(
-                        tag: 'chat_avatar_${other?.uid}',
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.primary.withValues(alpha: 0.05),
-                              width: 2,
+    return ChangeNotifierProvider<ChatUiProvider>.value(
+      value: _uiProvider,
+      child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child:
+              Selector<
+                ChatUiProvider,
+                ({bool isSelectionMode, int selectedCount})
+              >(
+                selector: (_, provider) => (
+                  isSelectionMode: provider.isSelectionMode,
+                  selectedCount: provider.selectedMessageIds.length,
+                ),
+                builder: (context, selectionState, _) => AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: selectionState.isSelectionMode
+                      ? AppBar(
+                          key: const ValueKey('selection_appbar'),
+                          leading: IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: _clearSelection,
+                          ),
+                          title: Text(
+                            '${selectionState.selectedCount} messages selected...',
+                          ),
+                          actions: [
+                            if (_canCopy())
+                              IconButton(
+                                icon: const Icon(Icons.copy),
+                                onPressed: _copyToClipboard,
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: _deleteSelectedMessages,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.02),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                          ],
+                        )
+                      : AppBar(
+                          key: const ValueKey('normal_appbar'),
+                          title: Row(
+                            children: [
+                              Hero(
+                                tag: 'chat_avatar_${other?.uid}',
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.05,
+                                      ),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.02,
+                                        ),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: other != null
+                                        ? AppColors.getColorFromString(
+                                            other.uid,
+                                          )
+                                        : AppColors.greyLight,
+                                    backgroundImage: other?.profileUrl != null
+                                        ? CachedNetworkImageProvider(
+                                            other!.profileUrl!,
+                                          )
+                                        : null,
+                                    child: other?.profileUrl == null
+                                        ? Text(
+                                            (other?.displayName ??
+                                                    other?.username ??
+                                                    'U')
+                                                .substring(0, 1)
+                                                .toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  other?.displayName ??
+                                      other?.username ??
+                                      'Chat',
+                                ),
                               ),
                             ],
                           ),
-                          child: CircleAvatar(
-                            radius: 18,
-                            backgroundColor: other != null
-                                ? AppColors.getColorFromString(other.uid)
-                                : AppColors.greyLight,
-                            backgroundImage: other?.profileUrl != null
-                                ? CachedNetworkImageProvider(other!.profileUrl!)
-                                : null,
-                            child: other?.profileUrl == null
-                                ? Text(
-                                    (other?.displayName ??
-                                            other?.username ??
-                                            'U')
-                                        .substring(0, 1)
-                                        .toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : null,
-                          ),
+                          actions: const [],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          other?.displayName ?? other?.username ?? 'Chat',
-                        ),
-                      ),
-                    ],
-                  ),
-                  actions: const [],
                 ),
+              ),
         ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _buildMessageList(_currentUserId ?? currentUser?.uid ?? ''),
-          ),
-          const Divider(height: 1),
-          IgnorePointer(ignoring: _isSelectionMode, child: _buildComposer()),
-        ],
+        body: Column(
+          children: [
+            Expanded(child: _buildMessageList(currentUser?.uid ?? '')),
+            const Divider(height: 1),
+            Selector<ChatUiProvider, bool>(
+              selector: (_, provider) => provider.isSelectionMode,
+              builder: (context, isSelectionMode, _) => IgnorePointer(
+                ignoring: isSelectionMode,
+                child: _buildComposer(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMessageList(String currentUid) {
-    final displayMessages = _buildDisplayMessages();
+  Widget _buildMessageList(String fallbackCurrentUid) {
+    return Selector<ChatUiProvider, _ChatListViewModel>(
+      selector: (_, provider) => _ChatListViewModel(
+        messages: provider.messages,
+        pendingMessages: provider.pendingMessages,
+        selectedMessageIds: provider.selectedMessageIds,
+        isLoadingMore: provider.isLoadingMore,
+        isSelectionMode: provider.isSelectionMode,
+        currentUid: provider.currentUserId ?? fallbackCurrentUid,
+      ),
+      builder: (context, state, _) {
+        final displayMessages = _buildDisplayMessagesFrom(
+          state.messages,
+          state.pendingMessages,
+        );
 
-    if (displayMessages.isEmpty) {
-      return const Center(child: Text('No messages yet'));
-    }
-
-    return ListView.builder(
-      controller: _scrollController,
-      reverse: true,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: displayMessages.length + (_isLoadingMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (_isLoadingMore && index == displayMessages.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          );
+        if (displayMessages.isEmpty) {
+          return const Center(child: Text('No messages yet'));
         }
 
-        final msg = displayMessages[index];
-        final isMe = msg.senderId == currentUid;
-        final isSelected = _selectedMessageIds.contains(msg.id);
-        final position = _getMessagePosition(displayMessages, index);
+        return ListView.builder(
+          controller: _scrollController,
+          reverse: true,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: displayMessages.length + (state.isLoadingMore ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (state.isLoadingMore && index == displayMessages.length) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              );
+            }
 
-        return GestureDetector(
-          onTap: _isSelectionMode ? () => _toggleSelection(msg.id) : null,
-          onLongPress: msg.isPending ? null : () => _toggleSelection(msg.id),
-          child: Container(
-            color: isSelected
-                ? Colors.blue.withValues(alpha: 0.1)
-                : Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Align(
-              alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-              child: _buildMessageBubble(msg, isMe, position),
-            ),
-          ),
+            final msg = displayMessages[index];
+            final isMe = msg.senderId == state.currentUid;
+            final isSelected = state.selectedMessageIds.contains(msg.id);
+            final position = _getMessagePosition(displayMessages, index);
+
+            return GestureDetector(
+              onTap: state.isSelectionMode
+                  ? () => _toggleSelection(msg.id)
+                  : null,
+              onLongPress: msg.isPending
+                  ? null
+                  : () => _toggleSelection(msg.id),
+              child: Container(
+                color: isSelected
+                    ? Colors.blue.withValues(alpha: 0.1)
+                    : Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Align(
+                  alignment: isMe
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: _buildMessageBubble(msg, isMe, position),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -586,14 +610,6 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!isMe)
-                Text(
-                  msg.senderName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
               if (msg.localImage != null || msg.imageUrl != null) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
@@ -750,8 +766,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   List<ChatDisplayMessage> _buildDisplayMessages() {
-    final remote = _messages.map(ChatDisplayMessage.fromRemote).toList();
-    final pending = _pendingMessages
+    return _buildDisplayMessagesFrom(
+      _uiProvider.messages,
+      _uiProvider.pendingMessages,
+    );
+  }
+
+  List<ChatDisplayMessage> _buildDisplayMessagesFrom(
+    List<MessageModel> remoteMessages,
+    List<ChatPendingMessage> pendingMessages,
+  ) {
+    final remote = remoteMessages.map(ChatDisplayMessage.fromRemote).toList();
+    final pending = pendingMessages
         .where((pendingMsg) {
           if (pendingMsg.uploadedImageUrl == null) {
             return true;
@@ -839,4 +865,43 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+}
+
+class _ChatListViewModel {
+  final List<MessageModel> messages;
+  final List<ChatPendingMessage> pendingMessages;
+  final Set<String> selectedMessageIds;
+  final bool isLoadingMore;
+  final bool isSelectionMode;
+  final String currentUid;
+
+  const _ChatListViewModel({
+    required this.messages,
+    required this.pendingMessages,
+    required this.selectedMessageIds,
+    required this.isLoadingMore,
+    required this.isSelectionMode,
+    required this.currentUid,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is _ChatListViewModel &&
+        identical(messages, other.messages) &&
+        identical(pendingMessages, other.pendingMessages) &&
+        identical(selectedMessageIds, other.selectedMessageIds) &&
+        isLoadingMore == other.isLoadingMore &&
+        isSelectionMode == other.isSelectionMode &&
+        currentUid == other.currentUid;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    identityHashCode(messages),
+    identityHashCode(pendingMessages),
+    identityHashCode(selectedMessageIds),
+    isLoadingMore,
+    isSelectionMode,
+    currentUid,
+  );
 }
