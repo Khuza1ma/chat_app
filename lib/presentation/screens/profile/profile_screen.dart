@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:chat_app/core/router/app_routes.dart';
 import 'package:chat_app/core/extension/toast_extension.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
 import 'package:chat_app/core/theme/app_colors.dart';
@@ -26,11 +28,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => ctx.pop(false),
             child: const Text('Cancel', style: TextStyle(color: AppColors.greyDark)),
           ),
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () => ctx.pop(true),
             child: const Text('Logout', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -40,7 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirmed == true) {
       await authProvider.logout();
       if (context.mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        context.goNamed(AppRoutes.login);
         context.showToast(message: 'Logged out successfully');
       }
     }

@@ -1,12 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chat_app/core/theme/app_colors.dart';
+import 'package:chat_app/core/router/app_route_args.dart';
+import 'package:chat_app/core/router/app_routes.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
-import 'package:chat_app/presentation/screens/chat/chat_screen.dart';
-import 'package:chat_app/presentation/screens/profile/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -81,12 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   return GestureDetector(
                     onTap: () async {
                       _searchFocusNode.unfocus();
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ProfileScreen(),
-                        ),
-                      );
+                      await context.pushNamed(AppRoutes.profile);
                       if (mounted) {
                         _searchFocusNode.unfocus();
                       }
@@ -331,11 +327,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: InkWell(
         onTap: () async {
           _searchFocusNode.unfocus();
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(otherUser: user),
-            ),
+          await context.pushNamed(
+            AppRoutes.chat,
+            extra: ChatRouteArgs(otherUser: user),
           );
           if (mounted) {
             _searchFocusNode.unfocus();

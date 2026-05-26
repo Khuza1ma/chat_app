@@ -3,17 +3,19 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:chat_app/core/extension/toast_extension.dart';
+import 'package:chat_app/core/router/app_paths.dart';
+import 'package:chat_app/core/router/app_route_args.dart';
 import 'package:chat_app/core/theme/app_colors.dart';
 import 'package:chat_app/data/models/message_model.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
-import 'package:chat_app/presentation/screens/chat/models/chat_message_state.dart';
-import 'package:chat_app/presentation/screens/chat/widgets/image_preview_screen.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
 import 'package:chat_app/presentation/providers/chat_provider.dart';
+import 'package:chat_app/presentation/screens/chat/models/chat_message_state.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:toastification/toastification.dart';
@@ -136,7 +138,7 @@ class _ChatScreenState extends State<ChatScreen> {
             leading: const Icon(Icons.camera_alt),
             title: const Text('Capture from camera'),
             onTap: () {
-              Navigator.pop(ctx);
+              ctx.pop();
               _pickImage(ImageSource.camera);
             },
           ),
@@ -144,7 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
             leading: const Icon(Icons.photo_library),
             title: const Text('Pick from gallery'),
             onTap: () {
-              Navigator.pop(ctx);
+              ctx.pop();
               _pickImage(ImageSource.gallery);
             },
           ),
@@ -165,10 +167,11 @@ class _ChatScreenState extends State<ChatScreen> {
     if (picked != null) {
       if (!mounted) return;
       final file = File(picked.path);
-      final String? caption = await Navigator.of(context).push<String?>(
-        MaterialPageRoute(
-          builder: (_) =>
-              ImagePreviewScreen(file: file, initialCaption: _controller.text),
+      final String? caption = await context.push<String?>(
+        AppPaths.imagePreview,
+        extra: ImagePreviewRouteArgs(
+          file: file,
+          initialCaption: _controller.text,
         ),
       );
 
@@ -325,11 +328,11 @@ class _ChatScreenState extends State<ChatScreen> {
         content: const Text('This action cannot be undone.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => ctx.pop(false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () => ctx.pop(true),
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
@@ -517,6 +520,7 @@ class _ChatScreenState extends State<ChatScreen> {
         final msg = displayMessages[index];
         final isMe = msg.senderId == currentUid;
         final isSelected = _selectedMessageIds.contains(msg.id);
+        final position = _getMessagePosition(displayMessages, index);
 
         return GestureDetector(
           onTap: _isSelectionMode ? () => _toggleSelection(msg.id) : null,
@@ -525,10 +529,10 @@ class _ChatScreenState extends State<ChatScreen> {
             color: isSelected
                 ? Colors.blue.withValues(alpha: 0.1)
                 : Colors.transparent,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Align(
               alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-              child: _buildMessageBubble(msg, isMe),
+              child: _buildMessageBubble(msg, isMe, position),
             ),
           ),
         );
@@ -536,7 +540,11 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(ChatDisplayMessage msg, bool isMe) {
+  Widget _buildMessageBubble(
+    ChatDisplayMessage msg,
+    bool isMe,
+    MessagePosition position,
+  ) {
     final isImageOnly =
         (msg.localImage != null || msg.imageUrl != null) && msg.text.isEmpty;
 
@@ -568,11 +576,13 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Card(
         color: isMe ? Colors.blueAccent : Colors.grey[200],
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: _messageBorderRadius(isMe, position),
+        ),
         child: Padding(
           padding: msg.localImage != null || msg.imageUrl != null
               ? const EdgeInsets.only(bottom: 8)
-              : const EdgeInsets.all(8.0),
+              : const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -625,6 +635,66 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
       ),
     );
+  }
+
+  MessagePosition _getMessagePosition(
+    List<ChatDisplayMessage> messages,
+    int index,
+  ) {
+    final msg = messages[index];
+    final hasSameSenderAbove =
+        index > 0 && messages[index - 1].senderId == msg.senderId;
+    final hasSameSenderBelow =
+        index < messages.length - 1 &&
+        messages[index + 1].senderId == msg.senderId;
+
+    if (hasSameSenderAbove && hasSameSenderBelow) return MessagePosition.middle;
+    if (hasSameSenderAbove) return MessagePosition.last;
+    if (hasSameSenderBelow) return MessagePosition.first;
+    return MessagePosition.isolated;
+  }
+
+  BorderRadius _messageBorderRadius(bool isMe, MessagePosition position) {
+    const radius = 15.0;
+
+    switch (position) {
+      case MessagePosition.first:
+        return isMe
+            ? const BorderRadius.only(
+                topLeft: Radius.circular(radius),
+                bottomLeft: Radius.circular(radius),
+                bottomRight: Radius.circular(radius),
+              )
+            : const BorderRadius.only(
+                topRight: Radius.circular(radius),
+                bottomRight: Radius.circular(radius),
+                bottomLeft: Radius.circular(radius),
+              );
+      case MessagePosition.middle:
+        return isMe
+            ? const BorderRadius.only(
+                topLeft: Radius.circular(radius),
+                bottomLeft: Radius.circular(radius),
+              )
+            : const BorderRadius.only(
+                topRight: Radius.circular(radius),
+                bottomRight: Radius.circular(radius),
+              );
+      case MessagePosition.last:
+        return isMe
+            ? const BorderRadius.only(
+                topLeft: Radius.circular(radius),
+                bottomLeft: Radius.circular(radius),
+                topRight: Radius.circular(radius),
+              )
+            : const BorderRadius.only(
+                topRight: Radius.circular(radius),
+                bottomRight: Radius.circular(radius),
+                topLeft: Radius.circular(radius),
+              );
+      case MessagePosition.isolated:
+        return BorderRadius.circular(radius);
+    }
   }
 
   Widget _buildMessageImage(ChatDisplayMessage msg, {required double width}) {
@@ -770,5 +840,3 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
-
-

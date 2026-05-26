@@ -7,12 +7,12 @@ import 'package:chat_app/data/sources/firebase_auth_source.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
 import 'package:chat_app/data/repositories/auth_repository_impl.dart';
 import 'package:chat_app/data/repositories/chat_repository_impl.dart';
+import 'package:chat_app/core/router/app_router.dart';
 import 'package:chat_app/domain/usecases/get_messages_usecase.dart';
 import 'package:chat_app/domain/usecases/send_message_usecase.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
 import 'package:chat_app/presentation/providers/chat_provider.dart';
-import 'package:chat_app/presentation/screens/auth/login_screen.dart';
-import 'package:chat_app/presentation/screens/home/home_screen.dart';
+import 'package:go_router/go_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,27 +32,28 @@ void main() async {
   final chatRepository = ChatRepositoryImpl(chatDataSource);
   final getMessagesUseCase = GetMessagesUseCase(chatRepository);
   final sendMessageUseCase = SendMessageUseCase(chatRepository);
+  final authProvider = AuthProvider(authRepository);
+  final chatProvider = ChatProvider(
+    getMessagesUseCase: getMessagesUseCase,
+    sendMessageUseCase: sendMessageUseCase,
+  );
+  final router = createAppRouter(authProvider);
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => AuthProvider(authRepository),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => ChatProvider(
-            getMessagesUseCase: getMessagesUseCase,
-            sendMessageUseCase: sendMessageUseCase,
-          ),
-        ),
+        ChangeNotifierProvider.value(value: authProvider),
+        ChangeNotifierProvider.value(value: chatProvider),
       ],
-      child: const MyApp(),
+      child: MyApp(router: router),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final GoRouter router;
+
+  const MyApp({super.key, required this.router});
 
   @override
   Widget build(BuildContext context) {
@@ -60,18 +61,11 @@ class MyApp extends StatelessWidget {
       onTap: () {
         FocusScope.of(context).unfocus();
       },
-      child: MaterialApp(
+      child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'Chat App',
         theme: AppTheme.lightTheme,
-        home: Consumer<AuthProvider>(
-          builder: (context, auth, _) {
-            if (auth.status == AuthStatus.authenticated) {
-              return const HomeScreen();
-            }
-            return const LoginScreen();
-          },
-        ),
+        routerConfig: router,
       ),
     );
   }

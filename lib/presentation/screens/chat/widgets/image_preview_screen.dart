@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class ImagePreviewScreen extends StatefulWidget {
   final File file;
@@ -41,14 +42,14 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
         title: const Text('Preview'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => context.pop(),
             child: const Text(
               'Discard',
               style: TextStyle(color: Colors.redAccent),
             ),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(_captionController.text.trim()),
+            onPressed: () => context.pop(_captionController.text.trim()),
             child: const Text('Send', style: TextStyle(color: Colors.white)),
           ),
         ],

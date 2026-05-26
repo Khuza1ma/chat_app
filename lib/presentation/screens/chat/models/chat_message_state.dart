@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:chat_app/data/models/message_model.dart';
 
+enum MessagePosition { first, middle, last, isolated }
+
 class ChatPendingMessage {
   final String id;
   final String senderId;

@@ -1,12 +1,12 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:dartz/dartz.dart';
-import 'package:provider/provider.dart';
-
 import 'package:chat_app/core/error/failures.dart';
+import 'package:chat_app/core/router/app_router.dart';
 import 'package:chat_app/domain/entities/user.dart';
 import 'package:chat_app/domain/repositories/auth_repository.dart';
-import 'package:chat_app/main.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
@@ -34,10 +34,14 @@ class _FakeAuthRepository implements AuthRepository {
 
 void main() {
   testWidgets('App boots to login screen', (WidgetTester tester) async {
+    final authProvider = AuthProvider(_FakeAuthRepository());
+
     await tester.pumpWidget(
-      ChangeNotifierProvider<AuthProvider>(
-        create: (_) => AuthProvider(_FakeAuthRepository()),
-        child: const MyApp(),
+      ChangeNotifierProvider.value(
+        value: authProvider,
+        child: MaterialApp.router(
+          routerConfig: createAppRouter(authProvider),
+        ),
       ),
     );
 
