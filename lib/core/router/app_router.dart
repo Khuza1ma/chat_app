@@ -7,6 +7,7 @@ import 'package:chat_app/presentation/screens/chat/chat_screen.dart';
 import 'package:chat_app/presentation/screens/home/home_screen.dart';
 import 'package:chat_app/presentation/screens/profile/profile_screen.dart';
 import 'package:chat_app/presentation/screens/chat/widgets/image_preview_screen.dart';
+import 'package:chat_app/presentation/screens/chat/widgets/image_viewer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -71,6 +72,23 @@ GoRouter createAppRouter(AuthProvider authProvider) {
           return ImagePreviewScreen(
             file: args.file,
             initialCaption: args.initialCaption,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppPaths.imageViewer,
+        name: AppRoutes.imageViewer,
+        builder: (context, state) {
+          final args = state.extra;
+          if (args is! ImageViewerRouteArgs) {
+            return const Scaffold(
+              body: Center(child: Text('Missing image viewer data')),
+            );
+          }
+          return ImageViewerScreen(
+            file: args.file,
+            imageUrl: args.imageUrl,
+            heroTag: args.heroTag,
           );
         },
       ),

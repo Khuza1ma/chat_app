@@ -17,3 +17,17 @@ class ImagePreviewRouteArgs {
     required this.initialCaption,
   });
 }
+
+class ImageViewerRouteArgs {
+  // Either `file` or `imageUrl` should be provided.
+  final File? file;
+  final String? imageUrl;
+  final String? heroTag;
+
+  const ImageViewerRouteArgs({
+    this.file,
+    this.imageUrl,
+    this.heroTag,
+  });
+}
+

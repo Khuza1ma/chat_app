@@ -4,4 +4,5 @@ class AppRoutes {
   static const profile = 'profile';
   static const chat = 'chat';
   static const imagePreview = 'imagePreview';
+  static const imageViewer = 'imageViewer';
 }

@@ -185,10 +185,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final other = widget.otherUser;
     if (currentUser == null || other == null) return;
 
-    // Retrieve text: prefer provider caption (from image preview) or fall back to controller
     final String text = chatProvider.caption.isNotEmpty
         ? chatProvider.caption.trim()
         : _controller.text.trim();
+    _controller.clear();
 
     if (text.isEmpty && _uiProvider.pickedImage == null) return;
     final chatId = _buildChatId(currentUser.uid, other.uid);
@@ -378,124 +378,138 @@ class _ChatScreenState extends State<ChatScreen> {
     final other = widget.otherUser;
     return ChangeNotifierProvider<ChatUiProvider>.value(
       value: _uiProvider,
-      child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight),
-          child:
-              Selector<
-                ChatUiProvider,
-                ({bool isSelectionMode, int selectedCount})
-              >(
-                selector: (_, provider) => (
-                  isSelectionMode: provider.isSelectionMode,
-                  selectedCount: provider.selectedMessageIds.length,
-                ),
-                builder: (context, selectionState, _) => AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: selectionState.isSelectionMode
-                      ? AppBar(
-                          key: const ValueKey('selection_appbar'),
-                          leading: IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: _clearSelection,
-                          ),
-                          title: Text(
-                            '${selectionState.selectedCount} messages selected...',
-                          ),
-                          actions: [
-                            if (_canCopy())
-                              IconButton(
-                                icon: const Icon(Icons.copy),
-                                onPressed: _copyToClipboard,
-                              ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: _deleteSelectedMessages,
-                            ),
-                          ],
-                        )
-                      : AppBar(
-                          key: const ValueKey('normal_appbar'),
-                          title: Row(
-                            children: [
-                              Hero(
-                                tag: 'chat_avatar_${other?.uid}',
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.05,
-                                      ),
-                                      width: 2,
+      child: Consumer<ChatUiProvider>(
+        builder: (context, provider, child) {
+          return PopScope(
+            canPop: !provider.isSelectionMode,
+
+            onPopInvokedWithResult: (didPop, result) {
+              if (!didPop && provider.isSelectionMode) {
+                provider.clearSelection();
+              }
+            },
+            child: Scaffold(
+              appBar: PreferredSize(
+                preferredSize: const Size.fromHeight(kToolbarHeight),
+                child:
+                    Selector<
+                      ChatUiProvider,
+                      ({bool isSelectionMode, int selectedCount})
+                    >(
+                      selector: (_, provider) => (
+                        isSelectionMode: provider.isSelectionMode,
+                        selectedCount: provider.selectedMessageIds.length,
+                      ),
+                      builder: (context, selectionState, _) => AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: selectionState.isSelectionMode
+                            ? AppBar(
+                                key: const ValueKey('selection_appbar'),
+                                leading: IconButton(
+                                  icon: const Icon(Icons.close),
+                                  onPressed: _clearSelection,
+                                ),
+                                title: Text(
+                                  '${selectionState.selectedCount} messages selected...',
+                                ),
+                                actions: [
+                                  if (_canCopy())
+                                    IconButton(
+                                      icon: const Icon(Icons.copy),
+                                      onPressed: _copyToClipboard,
                                     ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.02,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                                  IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    onPressed: _deleteSelectedMessages,
                                   ),
-                                  child: CircleAvatar(
-                                    radius: 18,
-                                    backgroundColor: other != null
-                                        ? AppColors.getColorFromString(
-                                            other.uid,
-                                          )
-                                        : AppColors.greyLight,
-                                    backgroundImage: other?.profileUrl != null
-                                        ? CachedNetworkImageProvider(
-                                            other!.profileUrl!,
-                                          )
-                                        : null,
-                                    child: other?.profileUrl == null
-                                        ? Text(
-                                            (other?.displayName ??
-                                                    other?.username ??
-                                                    'U')
-                                                .substring(0, 1)
-                                                .toUpperCase(),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
+                                ],
+                              )
+                            : AppBar(
+                                key: const ValueKey('normal_appbar'),
+                                title: Row(
+                                  children: [
+                                    Hero(
+                                      tag: 'chat_avatar_${other?.uid}',
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: AppColors.primary.withValues(
+                                              alpha: 0.05,
                                             ),
-                                          )
-                                        : null,
-                                  ),
+                                            width: 2,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.02,
+                                              ),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: CircleAvatar(
+                                          radius: 18,
+                                          backgroundColor: other != null
+                                              ? AppColors.getColorFromString(
+                                                  other.uid,
+                                                )
+                                              : AppColors.greyLight,
+                                          backgroundImage:
+                                              other?.profileUrl != null
+                                              ? CachedNetworkImageProvider(
+                                                  other!.profileUrl!,
+                                                )
+                                              : null,
+                                          child: other?.profileUrl == null
+                                              ? Text(
+                                                  (other?.displayName ??
+                                                          other?.username ??
+                                                          'U')
+                                                      .substring(0, 1)
+                                                      .toUpperCase(),
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                )
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        other?.displayName ??
+                                            other?.username ??
+                                            'Chat',
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                actions: const [],
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  other?.displayName ??
-                                      other?.username ??
-                                      'Chat',
-                                ),
-                              ),
-                            ],
-                          ),
-                          actions: const [],
-                        ),
-                ),
+                      ),
+                    ),
               ),
-        ),
-        body: Column(
-          children: [
-            Expanded(child: _buildMessageList(currentUser?.uid ?? '')),
-            const Divider(height: 1),
-            Selector<ChatUiProvider, bool>(
-              selector: (_, provider) => provider.isSelectionMode,
-              builder: (context, isSelectionMode, _) => IgnorePointer(
-                ignoring: isSelectionMode,
-                child: _buildComposer(),
+              body: Column(
+                children: [
+                  Expanded(child: _buildMessageList(currentUser?.uid ?? '')),
+                  const Divider(height: 1),
+                  Selector<ChatUiProvider, bool>(
+                    selector: (_, provider) => provider.isSelectionMode,
+                    builder: (context, isSelectionMode, _) => IgnorePointer(
+                      ignoring: isSelectionMode,
+                      child: _buildComposer(),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -715,51 +729,89 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessageImage(ChatDisplayMessage msg, {required double width}) {
     if (msg.localImage != null) {
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.black,
-          border: Border.all(color: Colors.grey, width: 0.5),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.file(msg.localImage!, width: width, fit: BoxFit.cover),
-        ),
-      );
-    }
+      final heroTag = 'message_image_${msg.id}';
+      return GestureDetector(
+        onTap: () {
+          if (_uiProvider.isSelectionMode) {
+            _toggleSelection(msg.id);
+            return;
+          }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black,
-        border: Border.all(color: Colors.grey, width: 0.5),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: CachedNetworkImage(
-          imageUrl: msg.imageUrl!,
-          width: width,
-          fit: BoxFit.cover,
-          placeholder: (context, url) => Container(
-            height: 100,
+          context.push(
+            AppPaths.imageViewer,
+            extra: ImageViewerRouteArgs(file: msg.localImage, heroTag: heroTag),
+          );
+        },
+        child: Hero(
+          tag: heroTag,
+          child: Container(
             decoration: BoxDecoration(
               color: Colors.black,
               border: Border.all(color: Colors.grey, width: 0.5),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Center(
-              child: SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.file(
+                msg.localImage!,
+                width: width,
+                fit: BoxFit.cover,
               ),
             ),
           ),
-          errorWidget: (context, url, error) =>
-              const Icon(Icons.image, color: Colors.white, size: 32),
+        ),
+      );
+    }
+
+    final heroTag = 'message_image_${msg.id}';
+    return GestureDetector(
+      onTap: () {
+        if (_uiProvider.isSelectionMode) {
+          _toggleSelection(msg.id);
+          return;
+        }
+
+        context.push(
+          AppPaths.imageViewer,
+          extra: ImageViewerRouteArgs(imageUrl: msg.imageUrl, heroTag: heroTag),
+        );
+      },
+      child: Hero(
+        tag: heroTag,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black,
+            border: Border.all(color: Colors.grey, width: 0.5),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: CachedNetworkImage(
+              imageUrl: msg.imageUrl!,
+              width: width,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  border: Border.all(color: Colors.grey, width: 0.5),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Center(
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              ),
+              errorWidget: (context, url, error) =>
+                  const Icon(Icons.image, color: Colors.white, size: 32),
+            ),
+          ),
         ),
       ),
     );
