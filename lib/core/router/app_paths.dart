@@ -5,4 +5,3 @@ class AppPaths {
   static const chat = '/chat';
   static const imagePreview = '/image-preview';
 }
-

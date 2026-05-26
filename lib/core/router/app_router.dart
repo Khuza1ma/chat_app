@@ -77,4 +77,3 @@ GoRouter createAppRouter(AuthProvider authProvider) {
     ],
   );
 }
-

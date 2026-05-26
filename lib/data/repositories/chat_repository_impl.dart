@@ -17,7 +17,10 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<Either<Failure, void>> sendMessage(MessageEntity message, File? image) async {
+  Future<Either<Failure, void>> sendMessage(
+    MessageEntity message,
+    File? image,
+  ) async {
     try {
       String? imageUrl;
       if (image != null) {
@@ -42,12 +45,18 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<List<MessageEntity>> getOlderMessages(DateTime before, {int limit = 20}) {
+  Future<List<MessageEntity>> getOlderMessages(
+    DateTime before, {
+    int limit = 20,
+  }) {
     return dataSource.getOlderMessages(before, limit);
   }
 
   @override
-  Future<Either<Failure, void>> deleteMessages(String chatId, List<String> messageIds) async {
+  Future<Either<Failure, void>> deleteMessages(
+    String chatId,
+    List<String> messageIds,
+  ) async {
     try {
       for (final id in messageIds) {
         await dataSource.deleteChatMessage(chatId, id);

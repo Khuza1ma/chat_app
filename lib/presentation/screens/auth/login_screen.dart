@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:pinput/pinput.dart';
-import 'package:toastification/toastification.dart';
-import 'package:chat_app/presentation/providers/auth_provider.dart';
 import 'package:chat_app/core/extension/toast_extension.dart';
 import 'package:chat_app/core/theme/app_colors.dart';
+import 'package:chat_app/presentation/providers/auth_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:pinput/pinput.dart';
+import 'package:provider/provider.dart';
+import 'package:toastification/toastification.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -182,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
           keyboardType: TextInputType.phone,
           maxLength: 10,
           readOnly:
-          authProvider.status == AuthStatus.loading ||
+              authProvider.status == AuthStatus.loading ||
               authProvider.status == AuthStatus.codeSent,
           style: const TextStyle(fontSize: 16, letterSpacing: 1.2),
           decoration: InputDecoration(
@@ -192,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
               fontWeight: FontWeight.w600,
               color: Colors.grey,
             ),
-            prefixIcon:  Padding(
+            prefixIcon: Padding(
               padding: const EdgeInsets.only(left: 16, right: 6),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -206,11 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Container(
-                    width: 1.5,
-                    height: 24,
-                    color: Colors.black,
-                  ),
+                  Container(width: 1.5, height: 24, color: Colors.black),
                 ],
               ),
             ),
@@ -367,4 +363,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

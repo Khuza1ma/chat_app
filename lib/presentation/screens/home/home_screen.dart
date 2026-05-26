@@ -1,14 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:chat_app/core/theme/app_colors.dart';
 import 'package:chat_app/core/router/app_route_args.dart';
 import 'package:chat_app/core/router/app_routes.dart';
+import 'package:chat_app/core/theme/app_colors.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
 import 'package:chat_app/presentation/providers/home_ui_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -72,7 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     stream: _userStream,
                     initialData: _cachedUser,
                     builder: (context, snapshot) {
-                      // Update cache when new data arrives
                       if (snapshot.hasData) {
                         _cachedUser = snapshot.data;
                       }
@@ -222,7 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       }
 
                       return ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 0),
+                        padding: const EdgeInsets.symmetric(),
                         itemCount: users.length,
                         itemBuilder: (context, index) {
                           final userItem = users[index];
@@ -263,7 +262,6 @@ class _HomeScreenState extends State<HomeScreen> {
       child: TextField(
         controller: _searchController,
         focusNode: _searchFocusNode,
-        autofocus: false,
         onChanged: (value) {
           uiState.setSearchQuery(value);
         },
@@ -294,10 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : null,
           filled: true,
           fillColor: AppColors.greyLight.withValues(alpha: 0.5),
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 0,
-            horizontal: 16,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,

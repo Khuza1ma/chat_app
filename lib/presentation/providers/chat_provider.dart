@@ -10,7 +10,7 @@ class ChatProvider extends ChangeNotifier {
 
   List<MessageEntity> _messages = [];
   final bool _isLoading = false;
-  
+
   // Added caption variable to handle image captions without affecting the main controller
   String _caption = '';
   String get caption => _caption;
@@ -40,9 +40,7 @@ class ChatProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> sendMessage(String text, {File? image}) async {
-  }
+  Future<void> sendMessage(String text, {File? image}) async {}
 
-  Future<void> loadOlderMessages() async {
-  }
+  Future<void> loadOlderMessages() async {}
 }

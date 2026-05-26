@@ -1,13 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:chat_app/core/router/app_routes.dart';
 import 'package:chat_app/core/extension/toast_extension.dart';
+import 'package:chat_app/core/router/app_routes.dart';
+import 'package:chat_app/core/theme/app_colors.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
+import 'package:chat_app/presentation/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:chat_app/presentation/providers/auth_provider.dart';
-import 'package:chat_app/core/theme/app_colors.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,7 +19,10 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseChatSource _chatSource = FirebaseChatSource();
 
-  Future<void> _showLogoutDialog(BuildContext context, AuthProvider authProvider) async {
+  Future<void> _showLogoutDialog(
+    BuildContext context,
+    AuthProvider authProvider,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -29,11 +32,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => ctx.pop(false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.greyDark)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.greyDark),
+            ),
           ),
           TextButton(
             onPressed: () => ctx.pop(true),
-            child: const Text('Logout', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Logout',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -60,7 +72,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('My Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'My Profile',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
@@ -78,18 +93,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
 
           final user = snapshot.data;
-          final displayName = user?.displayName ?? user?.username ?? authUser.displayName ?? authUser.username ?? 'User';
-          final profileUrl = user?.profileUrl ?? user?.photoUrl ?? authUser.profileUrl ?? authUser.photoUrl;
+          final displayName =
+              user?.displayName ??
+              user?.username ??
+              authUser.displayName ??
+              authUser.username ??
+              'User';
+          final profileUrl =
+              user?.profileUrl ??
+              user?.photoUrl ??
+              authUser.profileUrl ??
+              authUser.photoUrl;
           final phoneNumber = user?.phoneNumber ?? authUser.phoneNumber;
 
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 32),
-                  // Profile Image with Hero animation
                   Center(
                     child: Hero(
                       tag: 'profile_avatar',
@@ -97,7 +119,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.1), 
+                            color: AppColors.primary.withValues(alpha: 0.1),
                             width: 6,
                           ),
                           boxShadow: [
@@ -110,16 +132,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         child: CircleAvatar(
                           radius: 65,
-                          backgroundColor: AppColors.getColorFromString(authUser.uid),
-                          backgroundImage: profileUrl != null 
-                              ? CachedNetworkImageProvider(profileUrl) 
+                          backgroundColor: AppColors.getColorFromString(
+                            authUser.uid,
+                          ),
+                          backgroundImage: profileUrl != null
+                              ? CachedNetworkImageProvider(profileUrl)
                               : null,
                           child: profileUrl == null
                               ? Text(
                                   displayName.substring(0, 1).toUpperCase(),
                                   style: const TextStyle(
-                                    color: Colors.white, 
-                                    fontSize: 48, 
+                                    color: Colors.white,
+                                    fontSize: 48,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 )
@@ -129,24 +153,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Name and Username
                   Text(
                     displayName,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                   if (user?.username != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       '@${user!.username}',
                       style: const TextStyle(
-                        fontSize: 16, 
-                        color: AppColors.primary, 
+                        fontSize: 16,
+                        color: AppColors.primary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                   const SizedBox(height: 40),
-                  // Info Section
                   _buildInfoCard(
                     icon: Icons.phone_android_rounded,
                     label: 'Phone Number',
@@ -157,18 +183,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildInfoCard(
                       icon: Icons.history_rounded,
                       label: 'Member Since',
-                      value: '${user!.createdAt!.day}/${user.createdAt!.month}/${user.createdAt!.year}',
+                      value:
+                          '${user!.createdAt!.day}/${user.createdAt!.month}/${user.createdAt!.year}',
                     ),
                   const SizedBox(height: 48),
-                  // Logout Button
                   SizedBox(
                     width: double.infinity,
                     child: TextButton.icon(
                       onPressed: () => _showLogoutDialog(context, authProvider),
                       icon: const Icon(Icons.logout_rounded, size: 20),
-                      label: const Text('Logout Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Logout Account',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       style: TextButton.styleFrom(
-                        backgroundColor: AppColors.error.withValues(alpha: 0.08),
+                        backgroundColor: AppColors.error.withValues(
+                          alpha: 0.08,
+                        ),
                         foregroundColor: AppColors.error,
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
@@ -187,7 +221,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildInfoCard({required IconData icon, required String label, required String value}) {
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -243,4 +281,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
-

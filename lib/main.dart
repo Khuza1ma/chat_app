@@ -25,7 +25,7 @@ void main() async {
       statusBarBrightness: Brightness.light,
     ),
   );
-  
+
   final authDataSource = FirebaseAuthSource();
   final chatDataSource = FirebaseChatSource();
   final authRepository = AuthRepositoryImpl(authDataSource);

@@ -14,8 +14,12 @@ class FirebaseChatSource {
         .orderBy('timestamp', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map(MessageModel.fromFirestore).where((m) => !m.isDeleted).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(MessageModel.fromFirestore)
+              .where((m) => !m.isDeleted)
+              .toList(),
+        );
   }
 
   // Chat-scoped APIs: messages are stored under `chats/{chatId}/messages`.
@@ -27,8 +31,12 @@ class FirebaseChatSource {
         .orderBy('timestamp', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map(MessageModel.fromFirestore).where((m) => !m.isDeleted).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(MessageModel.fromFirestore)
+              .where((m) => !m.isDeleted)
+              .toList(),
+        );
   }
 
   Future<void> sendMessage(MessageModel message) async {
@@ -60,7 +68,10 @@ class FirebaseChatSource {
     return snapshot.ref.getDownloadURL();
   }
 
-  Future<List<MessageModel>> getOlderMessages(DateTime before, int limit) async {
+  Future<List<MessageModel>> getOlderMessages(
+    DateTime before,
+    int limit,
+  ) async {
     final QuerySnapshot snapshot = await _firestore
         .collection('messages')
         .where('timestamp', isLessThan: Timestamp.fromDate(before))
@@ -68,10 +79,17 @@ class FirebaseChatSource {
         .limit(limit)
         .get();
 
-    return snapshot.docs.map(MessageModel.fromFirestore).where((m) => !m.isDeleted).toList();
+    return snapshot.docs
+        .map(MessageModel.fromFirestore)
+        .where((m) => !m.isDeleted)
+        .toList();
   }
 
-  Future<List<MessageModel>> getOlderChatMessages(String chatId, DateTime before, int limit) async {
+  Future<List<MessageModel>> getOlderChatMessages(
+    String chatId,
+    DateTime before,
+    int limit,
+  ) async {
     final QuerySnapshot snapshot = await _firestore
         .collection('chats')
         .doc(chatId)
@@ -81,7 +99,10 @@ class FirebaseChatSource {
         .limit(limit)
         .get();
 
-    return snapshot.docs.map(MessageModel.fromFirestore).where((m) => !m.isDeleted).toList();
+    return snapshot.docs
+        .map(MessageModel.fromFirestore)
+        .where((m) => !m.isDeleted)
+        .toList();
   }
 
   Stream<List<UserModel>> getAllUsers() {
@@ -90,9 +111,11 @@ class FirebaseChatSource {
         .where('isDeleted', isEqualTo: false)
         .orderBy('lastMessageTime', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => UserModel.fromFirebase(doc.data(), doc.id))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => UserModel.fromFirebase(doc.data(), doc.id))
+              .toList(),
+        );
   }
 
   Future<List<UserModel>> getUsersOnce() async {
@@ -103,7 +126,12 @@ class FirebaseChatSource {
         .get();
 
     return snapshot.docs
-        .map((doc) => UserModel.fromFirebase(doc.data() as Map<String, dynamic>, doc.id))
+        .map(
+          (doc) => UserModel.fromFirebase(
+            doc.data() as Map<String, dynamic>,
+            doc.id,
+          ),
+        )
         .toList();
   }
 
@@ -112,8 +140,10 @@ class FirebaseChatSource {
         .collection('users')
         .doc(uid)
         .snapshots()
-        .map((doc) => doc.exists && doc.data() != null
-            ? UserModel.fromFirebase(doc.data()!, doc.id)
-            : null);
+        .map(
+          (doc) => doc.exists && doc.data() != null
+              ? UserModel.fromFirebase(doc.data()!, doc.id)
+              : null,
+        );
   }
 }

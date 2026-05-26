@@ -17,4 +17,3 @@ class ImagePreviewRouteArgs {
     required this.initialCaption,
   });
 }
-

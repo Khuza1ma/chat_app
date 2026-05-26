@@ -90,4 +90,3 @@ class _ImagePreviewScreenState extends State<ImagePreviewScreen> {
     );
   }
 }
-

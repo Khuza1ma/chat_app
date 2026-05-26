@@ -86,8 +86,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadOlderMessages() async {
-    if (_uiProvider.messages.isEmpty || _uiProvider.activeChatId == null)
+    if (_uiProvider.messages.isEmpty || _uiProvider.activeChatId == null) {
       return;
+    }
     _uiProvider.setLoadingMore(true);
     try {
       final last = _uiProvider.messages.last;
@@ -352,7 +353,6 @@ class _ChatScreenState extends State<ChatScreen> {
     if (msg.text.isNotEmpty) {
       Clipboard.setData(ClipboardData(text: msg.text));
       _clearSelection();
-      // context.showToast(message: 'Copied to clipboard');
     }
   }
 

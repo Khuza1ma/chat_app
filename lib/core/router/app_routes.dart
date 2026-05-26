@@ -5,4 +5,3 @@ class AppRoutes {
   static const chat = 'chat';
   static const imagePreview = 'imagePreview';
 }
-

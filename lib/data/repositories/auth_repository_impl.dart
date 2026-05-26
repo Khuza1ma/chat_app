@@ -29,7 +29,9 @@ class AuthRepositoryImpl implements AuthRepository {
     } on FirebaseAuthException catch (e) {
       return Left(AuthFailure(_mapAuthError(e)));
     } catch (e) {
-      return Left(ServerFailure('Unable to send OTP right now. Please try again.'));
+      return Left(
+        ServerFailure('Unable to send OTP right now. Please try again.'),
+      );
     }
   }
 
@@ -45,15 +47,14 @@ class AuthRepositoryImpl implements AuthRepository {
       );
 
       return Right(
-        UserEntity(
-          uid: user.uid,
-          phoneNumber: user.phoneNumber ?? '',
-        ),
+        UserEntity(uid: user.uid, phoneNumber: user.phoneNumber ?? ''),
       );
     } on FirebaseAuthException catch (e) {
       return Left(AuthFailure(_mapAuthError(e)));
     } catch (e) {
-      return Left(ServerFailure('Unable to verify OTP right now. Please try again.'));
+      return Left(
+        ServerFailure('Unable to verify OTP right now. Please try again.'),
+      );
     }
   }
 
@@ -62,10 +63,7 @@ class AuthRepositoryImpl implements AuthRepository {
     return dataSource.onAuthStateChanged.map((user) {
       if (user == null) return null;
 
-      return UserEntity(
-        uid: user.uid,
-        phoneNumber: user.phoneNumber ?? '',
-      );
+      return UserEntity(uid: user.uid, phoneNumber: user.phoneNumber ?? '');
     });
   }
 

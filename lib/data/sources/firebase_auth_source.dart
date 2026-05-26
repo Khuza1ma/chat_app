@@ -5,8 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 class FirebaseAuthSource {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
-  Stream<User?> get onAuthStateChanged =>
-      _firebaseAuth.authStateChanges();
+  Stream<User?> get onAuthStateChanged => _firebaseAuth.authStateChanges();
 
   Future<void> signOut() async {
     await _firebaseAuth.signOut();
@@ -68,8 +67,7 @@ class FirebaseAuthSource {
       smsCode: smsCode,
     );
 
-    final userCredential =
-    await _firebaseAuth.signInWithCredential(credential);
+    final userCredential = await _firebaseAuth.signInWithCredential(credential);
 
     return userCredential.user!;
   }
