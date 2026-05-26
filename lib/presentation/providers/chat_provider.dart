@@ -10,6 +10,10 @@ class ChatProvider extends ChangeNotifier {
 
   List<MessageEntity> _messages = [];
   final bool _isLoading = false;
+  
+  // Added caption variable to handle image captions without affecting the main controller
+  String _caption = '';
+  String get caption => _caption;
 
   ChatProvider({
     required this.getMessagesUseCase,
@@ -18,6 +22,16 @@ class ChatProvider extends ChangeNotifier {
 
   List<MessageEntity> get messages => _messages;
   bool get isLoading => _isLoading;
+
+  void setCaption(String value) {
+    _caption = value;
+    notifyListeners();
+  }
+
+  void clearCaption() {
+    _caption = '';
+    notifyListeners();
+  }
 
   void listenToMessages() {
     getMessagesUseCase().listen((messages) {

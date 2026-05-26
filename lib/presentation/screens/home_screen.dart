@@ -21,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   String _searchQuery = '';
-  
+
   Stream<UserModel?>? _userStream;
   String? _lastUid;
   UserModel? _cachedUser; // Local cache to prevent UI flicker
@@ -44,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final authUser = authProvider.user;
-    
+
     _updateUserStream(authUser?.uid);
 
     return Scaffold(
@@ -60,39 +60,39 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: Colors.black,
         actions: [
           if (authUser != null && _userStream != null)
-            StreamBuilder<UserModel?>(
-              stream: _userStream,
-              initialData: _cachedUser,
-              builder: (context, snapshot) {
-                // Update local cache whenever new data arrives
-                if (snapshot.hasData) {
-                  _cachedUser = snapshot.data;
-                }
-                
-                final user = snapshot.data;
-                final profileUrl =
-                    user?.profileUrl ??
-                    user?.photoUrl ??
-                    authUser.profileUrl ??
-                    authUser.photoUrl;
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: StreamBuilder<UserModel?>(
+                stream: _userStream,
+                initialData: _cachedUser,
+                builder: (context, snapshot) {
+                  // Update cache when new data arrives
+                  if (snapshot.hasData) {
+                    _cachedUser = snapshot.data;
+                  }
 
-                return Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: Hero(
-                    tag: 'profile_avatar',
-                    child: GestureDetector(
-                      onTap: () async {
+                  final user = snapshot.data;
+                  final profileUrl =
+                      user?.profileUrl ??
+                      user?.photoUrl ??
+                      authUser.profileUrl ??
+                      authUser.photoUrl;
+
+                  return GestureDetector(
+                    onTap: () async {
+                      _searchFocusNode.unfocus();
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProfileScreen(),
+                        ),
+                      );
+                      if (mounted) {
                         _searchFocusNode.unfocus();
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProfileScreen(),
-                          ),
-                        );
-                        if (mounted) {
-                          _searchFocusNode.unfocus();
-                        }
-                      },
+                      }
+                    },
+                    child: Hero(
+                      tag: 'profile_avatar',
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -114,34 +114,41 @@ class _HomeScreenState extends State<HomeScreen> {
                             authUser.uid,
                           ),
                           child: ClipOval(
-                            child: CachedNetworkImage(
-                              imageUrl: profileUrl ?? '',
-                              width: 36,
-                              height: 36,
-                              fit: BoxFit.cover,
-                              placeholder: (context, url) => const Icon(
-                                Icons.person,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                              errorWidget: (context, url, error) => const Icon(
-                                Icons.person,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                            ),
+                            child: profileUrl != null
+                                ? CachedNetworkImage(
+                                    imageUrl: profileUrl,
+                                    width: 36,
+                                    height: 36,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => const Icon(
+                                      Icons.person,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        const Icon(
+                                          Icons.person,
+                                          size: 18,
+                                          color: Colors.white,
+                                        ),
+                                  )
+                                : const Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
         ],
       ),
       body: GestureDetector(
-        onTap: () => _searchFocusNode.unfocus(),
+        onTap: _searchFocusNode.unfocus,
         child: Column(
           children: [
             _buildSearchField(),
@@ -149,36 +156,36 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StreamBuilder<List<UserModel>>(
                 stream: _chatSource.getAllUsers(),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
                   if (snapshot.hasError) {
-                    return Center(
+                    return const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.error_outline,
                             size: 48,
                             color: AppColors.error,
                           ),
-                          const SizedBox(height: 16),
-                          const Text('Error loading conversations'),
+                          SizedBox(height: 16),
+                          Text('Error loading conversations'),
                         ],
                       ),
                     );
                   }
 
-                  final users =
-                      (snapshot.data ?? [])
-                          .where((u) => u.uid != authUser?.uid)
-                          .where((u) {
-                            final name = (u.displayName ?? u.username ?? '')
-                                .toLowerCase();
-                            return name.contains(_searchQuery.toLowerCase());
-                          })
-                          .toList();
+                  final users = (snapshot.data ?? [])
+                      .where((u) => u.uid != authUser?.uid)
+                      .where((u) {
+                        final name = (u.displayName ?? u.username ?? '')
+                            .toLowerCase();
+                        return name.contains(_searchQuery.toLowerCase());
+                      })
+                      .toList();
 
                   if (users.isEmpty) {
                     return Center(
@@ -266,20 +273,19 @@ class _HomeScreenState extends State<HomeScreen> {
             color: AppColors.greyDark,
             size: 22,
           ),
-          suffixIcon:
-              _searchQuery.isNotEmpty
-                  ? IconButton(
-                    icon: const Icon(
-                      Icons.clear,
-                      color: AppColors.greyDark,
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() => _searchQuery = '');
-                    },
-                  )
-                  : null,
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(
+                    Icons.clear,
+                    color: AppColors.greyDark,
+                    size: 20,
+                  ),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
           filled: true,
           fillColor: AppColors.greyLight.withValues(alpha: 0.5),
           contentPadding: const EdgeInsets.symmetric(
@@ -361,23 +367,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: CircleAvatar(
                         radius: 28,
                         backgroundColor: AppColors.getColorFromString(user.uid),
-                        backgroundImage:
-                            user.profileUrl != null
-                                ? CachedNetworkImageProvider(user.profileUrl!)
-                                : null,
-                        child:
-                            user.profileUrl == null
-                                ? Text(
-                                  (user.displayName ?? user.username ?? 'U')
-                                      .substring(0, 1)
-                                      .toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 20,
-                                  ),
-                                )
-                                : null,
+                        backgroundImage: user.profileUrl != null
+                            ? CachedNetworkImageProvider(user.profileUrl!)
+                            : null,
+                        child: user.profileUrl == null
+                            ? Text(
+                                (user.displayName ?? user.username ?? 'U')
+                                    .substring(0, 1)
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20,
+                                ),
+                              )
+                            : null,
                       ),
                     ),
                     if (user.isActive)
@@ -426,10 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       user.lastMessage ?? 'Start a conversation',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
                 ),

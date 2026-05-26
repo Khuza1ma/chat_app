@@ -8,6 +8,7 @@ import 'package:chat_app/data/models/message_model.dart';
 import 'package:chat_app/data/models/user_model.dart';
 import 'package:chat_app/data/sources/firebase_chat_source.dart';
 import 'package:chat_app/presentation/providers/auth_provider.dart';
+import 'package:chat_app/presentation/providers/chat_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -171,7 +172,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
       if (caption != null) {
         if (!mounted) return;
-        _controller.text = caption;
+        // Use ChatProvider to handle the caption instead of direct controller assignment
+        Provider.of<ChatProvider>(context, listen: false).setCaption(caption);
         setState(() => _pickedImage = file);
         await _send();
       }
@@ -181,10 +183,16 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _send() async {
     if (!mounted) return;
     final auth = Provider.of<AuthProvider>(context, listen: false);
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
     final currentUser = auth.user;
     final other = widget.otherUser;
     if (currentUser == null || other == null) return;
-    final text = _controller.text.trim();
+
+    // Retrieve text: prefer provider caption (from image preview) or fall back to controller
+    final String text = chatProvider.caption.isNotEmpty 
+        ? chatProvider.caption.trim() 
+        : _controller.text.trim();
+
     if (text.isEmpty && _pickedImage == null) return;
     final chatId = _buildChatId(currentUser.uid, other.uid);
     final pendingId = DateTime.now().microsecondsSinceEpoch.toString();
@@ -274,6 +282,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     _controller.clear();
+    chatProvider.clearCaption(); // Reset provider state after send
+
     if (!mounted) return;
     setState(() => _pickedImage = null);
     await Future.delayed(const Duration(milliseconds: 200));
@@ -619,6 +629,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (msg.localImage != null) {
       return Container(
         decoration: BoxDecoration(
+          color: Colors.black,
           border: Border.all(color: Colors.grey, width: 0.5),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -631,6 +642,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Container(
       decoration: BoxDecoration(
+        color: Colors.black,
         border: Border.all(color: Colors.grey, width: 0.5),
         borderRadius: BorderRadius.circular(16),
       ),
@@ -640,6 +652,26 @@ class _ChatScreenState extends State<ChatScreen> {
           imageUrl: msg.imageUrl!,
           width: width,
           fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.black,
+              border: Border.all(color: Colors.grey, width: 0.5),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(
+              child: SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) =>
+              const Icon(Icons.image, color: Colors.white, size: 32),
         ),
       ),
     );
